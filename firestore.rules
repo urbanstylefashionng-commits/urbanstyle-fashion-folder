@@ -1,0 +1,193 @@
+rules_version = '2';
+// URBANSTYLE FASHION — Cloud Firestore security rules (store, marketplace, chat, reviews, operations)
+// Paste into Firebase console → Firestore Database → Rules → Publish.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isMe(uid) { return signedIn() && request.auth.uid == uid; }
+    // The support team (Support inbox + live chat replies). Must match CFG.support.adminEmails in index.html.
+    // The account must have verified its email, so nobody else can claim the address.
+    function isAdmin() {
+      return signedIn() && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() in ['urbanstylefashionng@gmail.com'];
+    }
+    function isActiveSeller() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/sellers/$(request.auth.uid))
+        && get(/databases/$(database)/documents/sellers/$(request.auth.uid)).data.status == 'active';
+    }
+
+    // ---------- customers ----------
+    // Each customer can read and write only their own profile and order history.
+    match /customers/{uid} {
+      allow read, write: if isMe(uid);
+      match /orders/{orderId} {
+        allow read, write: if isMe(uid);
+        allow update: if isAdmin();   // the team updates the customer's copy of the order status
+      }
+    }
+
+    // Every order placed on the site (guest or signed in). Shoppers can create an order;
+    // only the team can read and update orders (Team dashboard).
+    match /orders/{orderId} {
+      allow create: if request.resource.data.number == orderId
+                    && request.resource.data.total is number
+                    && request.resource.data.lines is list
+                    && (request.resource.data.uid == null
+                        || (signedIn() && request.resource.data.uid == request.auth.uid));
+      allow read, update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // Public order tracking: status and item names only (no names, addresses or phone numbers).
+    // The document id is a long random token that only the customer receives.
+    match /tracking/{token} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if token.size() >= 16 && request.resource.data.status == 'placed'
+                    && request.resource.data.number is string && request.resource.data.items is list;
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // Return requests from signed-in customers.
+    match /returns/{id} {
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.status == 'requested' && request.resource.data.items is list;
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // Contact form messages and newsletter sign-ups: anyone can send, only the team can read.
+    match /messages/{id} {
+      allow create: if request.resource.data.status == 'new'
+                    && request.resource.data.email is string && request.resource.data.email.size() <= 120
+                    && request.resource.data.message is string && request.resource.data.message.size() <= 2000;
+      allow read, update, delete: if isAdmin();
+    }
+    match /subscribers/{email} {
+      allow create: if request.resource.data.email is string && request.resource.data.email.lower() == email
+                    && email.size() <= 120;
+      allow read, delete: if isAdmin();
+      allow update: if false;
+    }
+
+    // Back-in-stock alert requests.
+    match /stockAlerts/{id} {
+      allow create: if request.resource.data.email is string && request.resource.data.email.size() <= 120
+                    && request.resource.data.productId is string;
+      allow read, delete: if isAdmin();
+      allow update: if false;
+    }
+
+    // Product reviews: one per customer per product (id = productId_uid). Anyone can read published
+    // reviews. "Verified buyer" is only allowed when the reviewer's own order contains the product.
+    match /reviews/{id} {
+      allow read: if resource.data.status == 'published' || isAdmin();
+      allow create: if signedIn() && id == request.resource.data.productId + '_' + request.auth.uid
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.status == 'published'
+                    && request.resource.data.rating is int && request.resource.data.rating >= 1 && request.resource.data.rating <= 5
+                    && request.resource.data.text is string && request.resource.data.text.size() >= 10 && request.resource.data.text.size() <= 1500
+                    && (request.resource.data.verified == false
+                        || request.resource.data.productId in get(/databases/$(database)/documents/customers/$(request.auth.uid)/orders/$(request.resource.data.orderNumber)).data.productIds);
+      allow update: if isAdmin();   // hide / publish
+      allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+    }
+
+    // ---------- marketplace ----------
+    // Public seller profiles. A seller creates and edits only their own profile.
+    // New stores open straight away ('active'). To approve sellers yourself instead, change
+    // 'active' to 'pending' in the create rule below, then set status to 'active' in the
+    // Firebase console for each seller you approve. Sellers can never change their own status.
+    match /sellers/{uid} {
+      allow read: if true;
+      allow create: if isMe(uid) && request.resource.data.status == 'active'
+                    && request.resource.data.handle is string;
+      allow update: if isMe(uid)
+                    && request.resource.data.status == resource.data.status
+                    && request.resource.data.handle == resource.data.handle;
+      allow delete: if false;
+    }
+
+    // Reserves each store's unique web address (first come, first served; never reassigned).
+    match /storeHandles/{handle} {
+      allow read: if true;
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid
+                    && handle.matches('^[a-z0-9][a-z0-9-]{2,29}$');
+      allow update, delete: if false;
+    }
+
+    // Product listings. Anyone can see live products; sellers also see their own drafts.
+    // Only an active seller can list, and only under their own seller id.
+    match /products/{pid} {
+      allow read: if resource.data.status == 'active'
+                  || (signedIn() && resource.data.sellerId == request.auth.uid);
+      allow create: if isActiveSeller()
+                    && request.resource.data.sellerId == request.auth.uid
+                    && request.resource.data.price is int && request.resource.data.price > 0
+                    && request.resource.data.status in ['active', 'draft'];
+      allow update: if signedIn()
+                    && resource.data.sellerId == request.auth.uid
+                    && request.resource.data.sellerId == request.auth.uid
+                    && request.resource.data.price is int && request.resource.data.price > 0
+                    && request.resource.data.status in ['active', 'draft'];
+      allow delete: if signedIn() && resource.data.sellerId == request.auth.uid;
+    }
+
+    // Full-size product photos (kept apart so shop pages stay light).
+    match /productImages/{pid} {
+      allow read: if true;
+      allow create, update: if signedIn() && request.resource.data.sellerId == request.auth.uid
+                            && get(/databases/$(database)/documents/products/$(pid)).data.sellerId == request.auth.uid;
+      allow delete: if signedIn() && resource.data.sellerId == request.auth.uid;
+    }
+
+    // The part of a customer order that one seller fulfils.
+    // Created at checkout; readable by that seller and that customer only.
+    // The seller can move it through its statuses but can't change items, prices or the customer.
+    match /sellerOrders/{id} {
+      allow create: if request.resource.data.sellerId is string
+                    && request.resource.data.lines is list
+                    && request.resource.data.status == 'new'
+                    && (request.resource.data.customerUid == null
+                        || (signedIn() && request.resource.data.customerUid == request.auth.uid));
+      allow read: if signedIn() && (resource.data.sellerId == request.auth.uid
+                                    || resource.data.customerUid == request.auth.uid);
+      allow update: if signedIn() && resource.data.sellerId == request.auth.uid
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['status', 'history', 'updatedAt', 'tracking', 'stockApplied'])
+                    && request.resource.data.status in ['new', 'processing', 'shipped', 'delivered', 'cancelled'];
+      allow delete: if false;
+    }
+
+    // ---------- live chat ----------
+    // A conversation's id is a long random secret stored in the customer's browser: whoever holds it
+    // can read and add to that one conversation. Only the support team can list all conversations.
+    match /chats/{chatId} {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create: if chatId.size() >= 20
+                    && request.resource.data.status == 'open'
+                    && request.resource.data.name is string && request.resource.data.name.size() <= 60
+                    && request.resource.data.email is string && request.resource.data.email.size() <= 120
+                    && (request.resource.data.uid == null || (signedIn() && request.resource.data.uid == request.auth.uid));
+      allow update: if isAdmin()
+                    || request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['lastMessage', 'updatedAt', 'unreadForAdmin', 'status']);
+      allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        allow read: if true;
+        allow create: if exists(/databases/$(database)/documents/chats/$(chatId))
+                      && request.resource.data.text is string
+                      && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000
+                      && (request.resource.data.from in ['customer', 'bot']
+                          || (isAdmin() && request.resource.data.from == 'agent'));
+        allow update, delete: if isAdmin();
+      }
+    }
+  }
+}
