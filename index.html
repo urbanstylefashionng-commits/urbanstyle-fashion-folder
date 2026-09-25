@@ -2865,6 +2865,15 @@ const AUTH_ACTION = (() => {
     return { mode, code };
   } catch (e) { return null; }
 })();
+// "Continue the chat" links in reply emails arrive as /?chat=<conversation id>: reopen that conversation
+const CHAT_RESUME = (() => {
+  try {
+    const q = new URLSearchParams(location.search), id = q.get("chat");
+    if (!id || !/^c[a-z0-9]{20,40}$/.test(id)) return null;
+    try { history.replaceState(null, "", location.pathname + (location.hash || "#home")); } catch (e) {}
+    return id;
+  } catch (e) { return null; }
+})();
 function parseRoute(raw) {
   const h = decodeURIComponent(String(raw == null ? location.hash : raw).replace(/^#/, ""));
   if (!h || h === "home") return { v: "home" };
@@ -2872,7 +2881,7 @@ function parseRoute(raw) {
   if (h.startsWith("shop-")) return { v: "shop", cat: h.slice(5) };
   if (h.startsWith("search-")) return { v: "shop", cat: "all", q: h.slice(7).trim() };
   if (h === "wishlist") return { v: "wishlist" };
-  if (h === "support") return { v: "support" };
+  if (h === "support" || h.startsWith("support-")) return { v: "support", id: h.slice(8) };
   if (h === "admin" || h.startsWith("admin-")) return { v: "admin", tab: h.slice(6) || "overview" };
   if (h.startsWith("track-")) return { v: "track", token: h.slice(6) };
   if (h === "track") return { v: "track", token: "" };
@@ -4964,12 +4973,15 @@ const Chat = {
     setInterval(() => this.status(), 60000);
     // reuse the saved conversation only if it really exists where chats are stored now
     authReady.then(async () => {
+      // a "Continue the chat" link from a reply email takes priority over whatever this browser had
+      if (CHAT_RESUME && await chatBe().exists(CHAT_RESUME).catch(() => false)) { store.set("chatId", CHAT_RESUME); store.set("chatSeen", ""); }
       const saved = store.get("chatId", null);
       if (saved) {
         const ok = await chatBe().exists(saved).catch(() => false);
         if (ok) { this.id = saved; this.listen(); } else store.set("chatId", null);
       }
       this.render();
+      if (CHAT_RESUME && this.id === CHAT_RESUME && !this.isOpen) this.toggle(true);
     });
     this.render();
   },
@@ -5055,7 +5067,10 @@ const Chat = {
     this.msgs.push(msg); this.render(); // show straight away; the live listener confirms it
     try {
       await chatBe().add(this.id, msg);
-      if (m.from === "customer") await chatBe().update(this.id, { lastMessage: m.text.slice(0, 140), updatedAt: msg.at, status: "open" }, true);
+      if (m.from === "customer") {
+        await chatBe().update(this.id, { lastMessage: m.text.slice(0, 140), updatedAt: msg.at, status: "open" }, true);
+        if (authMode === "firebase") brandedEmail("chat-new", { chatId: this.id }); // emails the team (at most every 30 minutes per chat)
+      }
     } catch (e) { console.warn(e); say("Message not sent. Check your connection."); }
   },
   botReply(text, kind) {
@@ -5133,7 +5148,11 @@ VIEWS.support = v => {
     $("#sup-form").addEventListener("submit", async e => {
       e.preventDefault(); const text = ta.value.trim(); if (!text) return; ta.value = "";
       const at = new Date().toISOString();
-      try { await chatBe().add(id, { from: "agent", name: `${u.first} · URBANSTYLE`, text, at }); await chatBe().update(id, { lastMessage: "You: " + text.slice(0, 120), updatedAt: at, unreadForAdmin: 0 }); }
+      try {
+        await chatBe().add(id, { from: "agent", name: `${u.first} · URBANSTYLE`, text, at }); await chatBe().update(id, { lastMessage: "You: " + text.slice(0, 120), updatedAt: at, unreadForAdmin: 0 });
+        // also email the reply to the customer, with a link back to this conversation (the server spaces these out)
+        if (authMode === "firebase" && fb.auth.currentUser) fb.auth.currentUser.getIdToken().then(t => brandedEmail("chat-reply", { chatId: id }, t)).catch(() => {});
+      }
       catch (err) { console.warn(err); say("Reply not sent. Check your connection."); ta.value = text; }
     });
     $(".sup-canned").addEventListener("click", e => { const b = e.target.closest("[data-canned]"); if (b) { ta.value = CANNED[+b.dataset.canned]; ta.focus(); } });
@@ -5142,8 +5161,31 @@ VIEWS.support = v => {
   };
   v.querySelector(".tabs").addEventListener("click", e => { const b = e.target.closest("[data-f]"); if (!b) return; filter = b.dataset.f; $$(".support-page .tabs [data-f]").forEach(x => x.setAttribute("aria-selected", x === b)); drawList(); });
   $("#sup-list").addEventListener("click", e => { const b = e.target.closest("[data-id]"); if (b) openThread(b.dataset.id); });
-  const unsubChats = chatBe().watchChats(list => { chats = list; drawList(); });
-  VIEWS._cleanup = () => { unsubChats(); if (unsubMsgs) unsubMsgs(); };
+  // alerts while the inbox is open: a short chime, the unread count in the browser tab, and
+  // (if switched on) a desktop/phone notification
+  let lastUnread = null, firstLoad = true;
+  const baseTitle = document.title;
+  const chime = () => { try { const a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(), g = a.createGain(); o.connect(g); g.connect(a.destination); o.frequency.value = 880; g.gain.setValueAtTime(.001, a.currentTime); g.gain.exponentialRampToValueAtTime(.2, a.currentTime + .02); g.gain.exponentialRampToValueAtTime(.001, a.currentTime + .5); o.start(); o.stop(a.currentTime + .5); } catch (e) {} };
+  const notifyBtn = document.createElement("button");
+  notifyBtn.type = "button"; notifyBtn.className = "btn btn-ghost btn-sm";
+  const drawNotifyBtn = () => { const p = "Notification" in window ? Notification.permission : "unsupported"; notifyBtn.hidden = p === "unsupported" || p === "granted"; notifyBtn.textContent = p === "denied" ? "Alerts blocked in browser settings" : "Turn on message alerts"; notifyBtn.disabled = p === "denied"; };
+  notifyBtn.addEventListener("click", async () => { try { await Notification.requestPermission(); } catch (e) {} drawNotifyBtn(); });
+  drawNotifyBtn(); $(".support-page .page-head").append(notifyBtn);
+  const unsubChats = chatBe().watchChats(list => {
+    chats = list; drawList();
+    const unread = chats.reduce((n, c) => n + (c.unreadForAdmin || 0), 0);
+    document.title = unread ? `(${unread}) ${baseTitle}` : baseTitle;
+    if (!firstLoad && unread > lastUnread) {
+      chime();
+      const newest = chats.find(c => c.unreadForAdmin);
+      if (newest && "Notification" in window && Notification.permission === "granted" && document.hidden) {
+        try { const n = new Notification(`${newest.name || "A customer"} · URBANSTYLE chat`, { body: newest.lastMessage || "New message", tag: newest.id, icon: "icon-192.png" }); n.onclick = () => { window.focus(); go("support-" + newest.id); n.close(); }; } catch (e) {}
+      }
+    }
+    if (firstLoad && route.id && chats.some(c => c.id === route.id)) openThread(route.id); // deep link from the alert email
+    lastUnread = unread; firstLoad = false;
+  });
+  VIEWS._cleanup = () => { unsubChats(); if (unsubMsgs) unsubMsgs(); document.title = baseTitle; };
 };
 
 /* ============ STORE OPERATIONS ============
