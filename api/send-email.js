@@ -294,8 +294,7 @@ async function sendChatAlert(fb, body, res, site) {
   const c = snap.data();
   if (c.alertedAt && Date.now() - new Date(c.alertedAt).getTime() < CHAT_ALERT_GAP_MS) return res.status(200).json({ ok: true, skipped: true });
   const msgs = await chatMessages(chatId);
-  if (!msgs.some(m => m.from === "customer")) return res.status(200).json({ ok: true, skipped: true });
-  await ref.set({ alertedAt: new Date().toISOString() }, { merge: true });
+  if (!msgs.some(m => m.from === "customer")) return res.status(200).json({ ok: true, skipped: true, reason: "no-customer-message-yet" });
   const recent = msgs.filter(m => m.from !== "bot").slice(-5);
   await brevo({
     to: STORE_EMAIL, name: BRAND, replyTo: c.email || undefined,
@@ -309,7 +308,8 @@ async function sendChatAlert(fb, body, res, site) {
     }),
     text: `${c.name || "A customer"} (${c.email || ""}) is waiting in the live chat:\n\n${recent.map(m => (m.from === "customer" ? "Customer: " : "Us: ") + m.text).join("\n")}\n\nReply: ${site}/#support-${chatId}`
   });
-  return res.status(200).json({ ok: true });
+  await ref.set({ alertedAt: new Date().toISOString() }, { merge: true }); // only counts once the email has actually gone
+  return res.status(200).json({ ok: true, sent: true });
 }
 
 /* ---------- 5. live chat: email the customer when the team replies ---------- */
@@ -328,8 +328,7 @@ async function sendChatReply(fb, req, body, res, site) {
   const msgs = await chatMessages(chatId);
   const lastCustomer = msgs.map(m => m.from).lastIndexOf("customer");
   const replies = msgs.slice(lastCustomer + 1).filter(m => m.from === "agent");
-  if (!replies.length) return res.status(200).json({ ok: true, skipped: true });
-  await ref.set({ replyMailedAt: new Date().toISOString() }, { merge: true });
+  if (!replies.length) return res.status(200).json({ ok: true, skipped: true, reason: "no-reply-yet" });
   const first = String(c.name || "").split(" ")[0] || "there";
   const url = `${site}/?chat=${chatId}`;
   const context = msgs.slice(Math.max(0, lastCustomer), lastCustomer + 1).concat(replies);
@@ -344,7 +343,8 @@ async function sendChatReply(fb, req, body, res, site) {
     }),
     text: `Hi ${first}, we've replied to your message:\n\n${replies.map(m => m.text).join("\n\n")}\n\nContinue the chat: ${url}\n\n${signoffText()}`
   });
-  return res.status(200).json({ ok: true });
+  await ref.set({ replyMailedAt: new Date().toISOString() }, { merge: true });
+  return res.status(200).json({ ok: true, sent: true });
 }
 
 /* ---------- helpers ---------- */
