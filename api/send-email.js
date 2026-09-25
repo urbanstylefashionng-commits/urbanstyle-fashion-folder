@@ -5,6 +5,8 @@
 //   { action: "reset", email }            password reset (never reveals whether an account exists)
 //   { action: "order", number }           order confirmation to the customer + a copy to the store
 //
+//   { action: "chat-new", chatId }        alerts the store that a customer is waiting in the live chat
+//   { action: "chat-reply", chatId }      + team member's ID token: emails the customer the team's reply
 //   { action: "status-check" }            checks the setup, sends nothing
 //
 // Emails are sent through Brevo (brevo.com, free for 300 emails a day). Firebase is only asked for the
@@ -143,6 +145,8 @@ module.exports = async (req, res) => {
     if (body.action === "verify") return await sendVerify(fb, req, res, site);
     if (body.action === "reset") return await sendReset(fb, body, res, site);
     if (body.action === "order") return await sendOrder(fb, body, res, site);
+    if (body.action === "chat-new") return await sendChatAlert(fb, body, res, site);
+    if (body.action === "chat-reply") return await sendChatReply(fb, req, body, res, site);
     return res.status(400).json({ ok: false, error: "unknown-action" });
   } catch (e) {
     console.error("[send-email]", e && (e.code || e.message) || e);
@@ -267,6 +271,78 @@ async function sendOrder(fb, body, res, site) {
       after: `<p style="margin:0">Reply to this email to write to the customer.</p>`
     }),
     text: `New order ${number} from ${c.fullname || ""} (${c.phone || ""}). Total ${naira(o.total)}. ${site}/#admin-orders`
+  });
+  return res.status(200).json({ ok: true });
+}
+
+/* ---------- 4. live chat: alert the store when a customer writes ---------- */
+const CHAT_ALERT_GAP_MS = 30 * 60 * 1000;  // one alert per conversation per 30 minutes
+const CHAT_REPLY_GAP_MS = 3 * 60 * 1000;   // one "we replied" email per conversation per 3 minutes
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "urbanstylefashionng@gmail.com").split(",").map(s => s.trim().toLowerCase());
+async function chatMessages(chatId) {
+  const { ok, j } = await google(`${FS()}/chats/${encodeURIComponent(chatId)}/messages?pageSize=30&orderBy=${encodeURIComponent("at desc")}`, null, "GET");
+  return ok ? (j.documents || []).map(d => fsFields(d.fields)).reverse() : [];
+}
+const quote = list => list.map(m => `<div style="margin:0 0 10px;padding:12px 14px;border-radius:12px;background:${m.from === "customer" ? "#F4F1EA" : "#141414"};color:${m.from === "customer" ? "#141414" : "#FFFFFF"}">
+  <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;opacity:.7;margin-bottom:4px">${m.from === "customer" ? "Customer" : m.from === "bot" ? "Auto-reply" : esc(m.name || "URBANSTYLE")}</div>${esc(m.text).replace(/\n/g, "<br>")}</div>`).join("");
+
+async function sendChatAlert(fb, body, res, site) {
+  const chatId = String(body.chatId || "");
+  if (!/^c[a-z0-9]{20,40}$/.test(chatId)) return res.status(400).json({ ok: false, error: "bad-chat" });
+  const ref = fb.firestore().collection("chats").doc(chatId), snap = await ref.get();
+  if (!snap.exists) return res.status(404).json({ ok: false, error: "no-chat" });
+  const c = snap.data();
+  if (c.alertedAt && Date.now() - new Date(c.alertedAt).getTime() < CHAT_ALERT_GAP_MS) return res.status(200).json({ ok: true, skipped: true });
+  const msgs = await chatMessages(chatId);
+  if (!msgs.some(m => m.from === "customer")) return res.status(200).json({ ok: true, skipped: true });
+  await ref.set({ alertedAt: new Date().toISOString() }, { merge: true });
+  const recent = msgs.filter(m => m.from !== "bot").slice(-5);
+  await brevo({
+    to: STORE_EMAIL, name: BRAND, replyTo: c.email || undefined,
+    subject: `💬 New chat from ${c.name || "a customer"}`,
+    html: layout({
+      preheader: (recent.filter(m => m.from === "customer").pop() || {}).text || "A customer is waiting for a reply.",
+      title: `${esc(c.name || "A customer")} is waiting for a reply`,
+      body: `<p style="margin:0 0 14px"><b>${esc(c.name || "")}</b> · <a href="mailto:${esc(c.email || "")}" style="color:#141414">${esc(c.email || "")}</a>${c.uid ? " · signed-in customer" : " · guest"}</p>${quote(recent)}`,
+      button: ["Reply in the Support inbox", `${site}/#support-${chatId}`],
+      after: `<p style="margin:0">Reply in the Support inbox so the customer sees it in the chat and gets it by email. You can also reply to this email to write to them directly.</p>`
+    }),
+    text: `${c.name || "A customer"} (${c.email || ""}) is waiting in the live chat:\n\n${recent.map(m => (m.from === "customer" ? "Customer: " : "Us: ") + m.text).join("\n")}\n\nReply: ${site}/#support-${chatId}`
+  });
+  return res.status(200).json({ ok: true });
+}
+
+/* ---------- 5. live chat: email the customer when the team replies ---------- */
+async function sendChatReply(fb, req, body, res, site) {
+  const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+  let user;
+  try { user = await fb.auth().verifyIdToken(token); } catch (e) { return res.status(401).json({ ok: false, error: "bad-token" }); }
+  if (!user.email_verified || !ADMIN_EMAILS.includes(String(user.email || "").toLowerCase())) return res.status(403).json({ ok: false, error: "team-only" });
+  const chatId = String(body.chatId || "");
+  if (!/^c[a-z0-9]{20,40}$/.test(chatId)) return res.status(400).json({ ok: false, error: "bad-chat" });
+  const ref = fb.firestore().collection("chats").doc(chatId), snap = await ref.get();
+  if (!snap.exists) return res.status(404).json({ ok: false, error: "no-chat" });
+  const c = snap.data();
+  if (!c.email) return res.status(200).json({ ok: true, skipped: true });
+  if (c.replyMailedAt && Date.now() - new Date(c.replyMailedAt).getTime() < CHAT_REPLY_GAP_MS) return res.status(200).json({ ok: true, skipped: true });
+  const msgs = await chatMessages(chatId);
+  const lastCustomer = msgs.map(m => m.from).lastIndexOf("customer");
+  const replies = msgs.slice(lastCustomer + 1).filter(m => m.from === "agent");
+  if (!replies.length) return res.status(200).json({ ok: true, skipped: true });
+  await ref.set({ replyMailedAt: new Date().toISOString() }, { merge: true });
+  const first = String(c.name || "").split(" ")[0] || "there";
+  const url = `${site}/?chat=${chatId}`;
+  const context = msgs.slice(Math.max(0, lastCustomer), lastCustomer + 1).concat(replies);
+  await brevo({
+    to: c.email, name: c.name, subject: `We've replied to your message · ${BRAND}`,
+    html: layout({
+      preheader: replies[replies.length - 1].text.slice(0, 120),
+      title: `Hi ${esc(first)}, we've replied to your message`,
+      body: `<p style="margin:0 0 14px">Here's the latest from our team:</p>${quote(context)}`,
+      button: ["Continue the chat", url],
+      after: `<p style="margin:0">You can also simply reply to this email, or message us on <a href="${WHATSAPP}" style="color:#141414">WhatsApp</a> (${PHONE}).</p>`
+    }),
+    text: `Hi ${first}, we've replied to your message:\n\n${replies.map(m => m.text).join("\n\n")}\n\nContinue the chat: ${url}\n\n${signoffText()}`
   });
   return res.status(200).json({ ok: true });
 }
