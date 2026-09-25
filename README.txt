@@ -184,6 +184,28 @@ Each product has a name, category, price, optional salePrice, colours, sizes, an
 Search for "const CFG" to change the currency, delivery fees, free-delivery threshold, promo codes and
 the featured products on the home page.
 
+BRANDED EMAILS (api/send-email.js + package.json)
+The store sends its own branded emails through Brevo (free, 300 emails a day):
+  - "Confirm your email" when someone creates an account
+  - "Reset your password"
+  - "Order confirmed" to the customer, and a "New order" alert to urbanstylefashionng@gmail.com
+The links in these emails open pages on the store itself (/?mode=verifyEmail or resetPassword).
+Until the setup below is done, the site automatically falls back to Firebase's standard emails.
+Setup:
+  1. brevo.com → sign up free with urbanstylefashionng@gmail.com → Senders, Domains & Dedicated IPs →
+     Senders → make sure urbanstylefashionng@gmail.com is a verified sender.
+     Then SMTP & API → API Keys → Generate a new API key → copy it (starts with xkeysib-).
+  2. Firebase console → ⚙ Project settings → Service accounts → Generate new private key → a .json file
+     downloads. Keep it private.
+  3. Vercel → your project → Settings → Environment Variables → add:
+       BREVO_API_KEY             = the Brevo key
+       FIREBASE_SERVICE_ACCOUNT  = open the .json file in Notepad, copy EVERYTHING, paste it here
+     Then Deployments → ⋯ on the latest → Redeploy.
+  Optional: MAIL_FROM (another verified Brevo sender), STORE_EMAIL (where order alerts go),
+  SITE_URL (e.g. https://urbanstyle-three.vercel.app, or your own domain later).
+For the best inbox delivery, later send from your own domain (e.g. hello@urbanstylefashion.com):
+add the domain in Brevo, add the DNS records it gives you, then set MAIL_FROM to that address.
+
 TEAM DASHBOARD AND STORE OPERATIONS
 Sign in as urbanstylefashionng@gmail.com (with the email verified) and open My account → Team dashboard
 (or go to yoursite/#admin). It has:

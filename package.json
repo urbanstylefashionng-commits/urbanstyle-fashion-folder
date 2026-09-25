@@ -1,0 +1,8 @@
+{
+  "name": "urbanstyle-fashion",
+  "private": true,
+  "description": "URBANSTYLE FASHION store. The site itself is plain HTML; this file only lists what the api/ functions need.",
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  }
+}

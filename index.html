@@ -793,6 +793,13 @@ body.has-sticky{padding-bottom:84px}
 .order-card .mini-lines{padding:6px 14px 12px;border-top:1px solid var(--line)}
 .oc-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:0 14px 14px;font-size:13px;color:var(--muted)}
 .order-card+.order-card{margin-top:10px}
+.action-card{max-width:520px;margin:32px auto 64px;text-align:center;justify-items:center}
+.action-card .auth-form{width:100%;text-align:left}
+.action-card .auth-h{font-size:clamp(26px,5vw,36px)}
+.action-card .btn-pair{justify-content:center}
+.action-icon{width:64px;height:64px;border-radius:50%;background:var(--lime);display:grid;place-items:center;font:800 30px/1 var(--font-display);color:var(--ink)}
+.action-icon svg.i{width:30px;height:30px;stroke-width:3}
+.action-icon.is-bad{background:#F6D9D2;color:#9B2C1C}
 .auth-loading{display:flex;align-items:center;justify-content:center;gap:12px;min-height:40vh;font-weight:600;color:var(--muted)}
 .spinner{width:22px;height:22px;border:3px solid var(--line);border-top-color:var(--ink);border-radius:50%;animation:spin .8s linear infinite}
 .verify-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px;padding:12px 16px;border-radius:var(--r-md);background:#FFF6DC;border:1.5px solid #EBCB6E;font-size:14.5px}
@@ -2191,6 +2198,20 @@ function fbErr(e) {
 // Verification and password-reset emails: after the customer clicks the link, Firebase's confirmation page
 // shows a "Continue" button that brings them back to the store. (Only on a real web address.)
 const emailLinkSettings = route => /^https?:$/.test(location.protocol) ? { url: location.origin + "/#" + route } : undefined;
+// Branded emails come from our own /api/send-email (Brevo). Returns true when it sent the email;
+// false means it isn't set up (or failed), and the caller falls back to Firebase's standard email.
+async function brandedEmail(action, payload = {}, idToken) {
+  if (!/^https?:$/.test(location.protocol) || /^(localhost|127\.)/.test(location.hostname)) return false;
+  try {
+    const r = await fetch("/api/send-email", { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, idToken ? { Authorization: "Bearer " + idToken } : {}), body: JSON.stringify(Object.assign({ action }, payload)) });
+    const j = await r.json().catch(() => ({}));
+    return r.ok && j.ok === true || r.status === 429; // 429 = one was sent less than a minute ago
+  } catch (e) { return false; }
+}
+async function sendVerificationEmail(user) {
+  try { if (await brandedEmail("verify", {}, await user.getIdToken())) return; } catch (e) {}
+  await user.sendEmailVerification(emailLinkSettings("account")).catch(() => user.sendEmailVerification());
+}
 const FirebaseAuth = {
   _u: null, _busy: false,
   current() { return this._u; },
@@ -2233,7 +2254,7 @@ const FirebaseAuth = {
       const profile = { first: first.trim(), last: last.trim(), email: user.email, phone: "", address: null, wish: store.get("wish", []), marketing: !!marketing, created: new Date().toISOString() };
       store.set("wish", []);
       this._u = Object.assign({}, profile, { id: user.uid, verified: false, orders: [], profileLoaded: true });
-      user.sendEmailVerification(emailLinkSettings("account")).catch(() => user.sendEmailVerification().catch(() => {}));
+      sendVerificationEmail(user).catch(() => {});
       // save the profile (and any guest order placed with this email) without holding up the welcome screen
       const lo = store.get("lastOrder", null);
       this._afterProfile((async () => {
@@ -2285,10 +2306,11 @@ const FirebaseAuth = {
     catch (e) { console.warn("[URBANSTYLE] Couldn't record the order in Firestore:", e.code || e.message || e); }
   },
   async resetPassword(email) {
+    if (await brandedEmail("reset", { email: email.trim() })) return;
     try { await fb.auth.sendPasswordResetEmail(email.trim(), emailLinkSettings("login")).catch(e => { if (e && /continue-uri|unauthorized/i.test(e.code || "")) return fb.auth.sendPasswordResetEmail(email.trim()); throw e; }); }
     catch (e) { const x = fbErr(e); if (x.message !== "invalid") throw x; } // don't reveal whether an account exists
   },
-  async resendVerification() { const u = fb.auth.currentUser; if (u) await u.sendEmailVerification(emailLinkSettings("account")).catch(() => u.sendEmailVerification()); },
+  async resendVerification() { const u = fb.auth.currentUser; if (u) await sendVerificationEmail(u); },
   async deleteAccount(pw) {
     await this._reauth(pw);
     this._busy = true;
@@ -2833,6 +2855,16 @@ function openQuickView(id, ci = 0) {
 
 /* ============ 5. ROUTER + VIEWS ============ */
 let route = { v: "home" }, currentHash = null;
+// Links from our branded emails arrive as /?mode=verifyEmail|resetPassword&oobCode=…: remember the code and
+// tidy the address bar (so the one-time code isn't left in history), then show the #auth-action page.
+const AUTH_ACTION = (() => {
+  try {
+    const q = new URLSearchParams(location.search), mode = q.get("mode"), code = q.get("oobCode");
+    if (!code || !["verifyEmail", "resetPassword"].includes(mode)) return null;
+    try { history.replaceState({ h: "auth-action" }, "", location.pathname + "#auth-action"); } catch (e) {}
+    return { mode, code };
+  } catch (e) { return null; }
+})();
 function parseRoute(raw) {
   const h = decodeURIComponent(String(raw == null ? location.hash : raw).replace(/^#/, ""));
   if (!h || h === "home") return { v: "home" };
@@ -2844,6 +2876,7 @@ function parseRoute(raw) {
   if (h === "admin" || h.startsWith("admin-")) return { v: "admin", tab: h.slice(6) || "overview" };
   if (h.startsWith("track-")) return { v: "track", token: h.slice(6) };
   if (h === "track") return { v: "track", token: "" };
+  if (h === "auth-action") return { v: "authaction" };
   if (h === "sell" || h === "sell-apply") return { v: "sell", apply: h === "sell-apply" };
   if (h === "seller" || h.startsWith("seller-")) { const [tab, ...rest] = h.slice(7).split("-"); return { v: "seller", tab: tab || "overview", pid: rest.join("-") }; }
   if (h.startsWith("store-")) return { v: "store", handle: h.slice(6) };
@@ -3645,6 +3678,7 @@ VIEWS.checkout = v => {
     } else { b.disabled = true; b.textContent = "Placing order…"; }
     await postJSON(CFG.orderEndpoint, order);
     await Auth.recordOrder(order);
+    if (authMode === "firebase") brandedEmail("order", { number: order.number }); // confirmation email + store alert (runs in the background)
     await Ops.createTracking(order);         // public tracking page (status only, no personal details)
     await Market.createSellerOrders(order); // one order per seller, so each seller only sees their own items
     if (Auth.current()) {
@@ -3995,6 +4029,66 @@ VIEWS.forgot = v => {
     $("#forgot-body").innerHTML = `<div class="form-alert info" role="status"><b>Password reset emails aren't switched on yet.</b>
       <p>Contact customer care at <b>urbanstylefashionng@gmail.com</b> or <b>0816 801 3667</b> from ${esc(d.email)} and we'll reset it for you.</p></div>
       <a class="btn btn-ghost btn-block" href="#login">Back to sign in</a>`;
+  });
+};
+
+/* Links in our branded emails land here (/?mode=verifyEmail|resetPassword&oobCode=…), so customers
+   confirm their email or choose a new password on the store itself, not on a Firebase page. */
+VIEWS.authaction = async v => {
+  const act = AUTH_ACTION || {};
+  const card = inner => `<div class="wrap auth-page"><section class="auth-card action-card">${inner}</section></div>`;
+  const busy = msg => { v.innerHTML = card(`<div class="auth-loading" role="status"><span class="spinner" aria-hidden="true"></span>${msg}</div>`); };
+  const done = (title, text, btns) => { v.innerHTML = card(`<div class="action-icon">${I.check}</div><h1 class="auth-h">${title}</h1><p class="auth-sub">${text}</p><div class="btn-pair">${btns}</div>`); };
+  const failed = (title, text, btns) => { v.innerHTML = card(`<div class="action-icon is-bad">!</div><h1 class="auth-h">${title}</h1><p class="auth-sub">${text}</p><div class="btn-pair">${btns}</div>`); };
+  const expired = e => /expired|invalid-action-code/.test((e && e.code) || "");
+  setMeta(act.mode === "resetPassword" ? "Choose a new password" : "Confirm your email");
+  if (!act.code) return failed("This link isn't complete", "Open the link straight from the email we sent you, or ask for a new one.", `<a class="btn btn-ink" href="#account">My account</a><a class="btn btn-ghost" href="#home">Back to the shop</a>`);
+  busy(act.mode === "resetPassword" ? "Checking your reset link…" : "Confirming your email…");
+  await authReady;
+  if (authMode !== "firebase") return failed("We can't reach our account service", "Check your internet connection and open the link from the email again.", `<a class="btn btn-ink" href="#home">Back to the shop</a>`);
+
+  if (act.mode === "verifyEmail") {
+    try {
+      await fb.auth.applyActionCode(act.code);
+      AUTH_ACTION.used = true;
+      const u = fb.auth.currentUser;
+      if (u) { try { await u.reload(); await u.getIdToken(true); } catch (e) {} const me = Auth.current(); if (me) me.verified = true; refreshAccountUI(); }
+      done("Your email is confirmed", "Thank you! Your URBANSTYLE account is all set, and we'll send your order updates to this address.",
+        u ? `<a class="btn btn-lime" href="#shop">Start shopping ${I.arrow}</a><a class="btn btn-ghost" href="#account">My account</a>` : `<a class="btn btn-lime" href="#login">Sign in ${I.arrow}</a><a class="btn btn-ghost" href="#shop">Browse the shop</a>`);
+    } catch (e) {
+      const u = fb.auth.currentUser;
+      if (u) { try { await u.reload(); } catch (x) {} if (u.emailVerified) return done("Your email is already confirmed", "You're all set. There's nothing else to do.", `<a class="btn btn-lime" href="#shop">Start shopping ${I.arrow}</a><a class="btn btn-ghost" href="#account">My account</a>`); }
+      failed(expired(e) ? "This link has expired or was already used" : "We couldn't confirm your email", u ? "No problem. We can send you a fresh link." : "Sign in and we'll send you a fresh link from your account page.",
+        u ? `<button type="button" class="btn btn-ink" id="act-resend">Send a new link</button><a class="btn btn-ghost" href="#account">My account</a>` : `<a class="btn btn-ink" href="#login">Sign in</a><a class="btn btn-ghost" href="#home">Back to the shop</a>`);
+      const b = $("#act-resend"); if (b) b.addEventListener("click", async () => { b.disabled = true; b.textContent = "Sending…"; try { await Auth.resendVerification(); b.textContent = "Sent! Check your inbox"; } catch (x) { b.disabled = false; b.textContent = "Try again"; } });
+    }
+    return;
+  }
+
+  // resetPassword
+  let email;
+  try { email = await fb.auth.verifyPasswordResetCode(act.code); }
+  catch (e) { return failed(expired(e) ? "This reset link has expired or was already used" : "This reset link doesn't work", "Reset links work once and expire after an hour. Ask for a new one below.", `<a class="btn btn-ink" href="#forgot">Send a new link</a><a class="btn btn-ghost" href="#login">Back to sign in</a>`); }
+  v.innerHTML = card(`<h1 class="auth-h">Choose a new password</h1><p class="auth-sub">For <b>${esc(email)}</b></p>
+    <form class="auth-form" id="reset-form" novalidate>
+      ${afield("newpw", "New password", "password", 'autocomplete="new-password" minlength="8"')}
+      ${afield("confirm", "Confirm new password", "password", 'autocomplete="new-password"')}
+      <p class="muted small">At least 8 characters, with a letter and a number.</p>
+      <button class="btn btn-ink btn-block" type="submit" data-busy="Saving…">Save new password</button></form>`);
+  bindForm($("#reset-form"), {
+    newpw: x => { const c = pwChecks(x); return c.len && c.letter && c.num ? "" : "Use at least 8 characters with a letter and a number."; },
+    confirm: (x, f) => x && x === f.elements.newpw.value ? "" : "The two passwords don't match."
+  }, async d => {
+    try {
+      await fb.auth.confirmPasswordReset(act.code, d.newpw);
+      AUTH_ACTION.used = true;
+      authNext = "account";
+      done("Your password has been changed", "You can now sign in with your new password.", `<a class="btn btn-lime" href="#login">Sign in ${I.arrow}</a><a class="btn btn-ghost" href="#shop">Browse the shop</a>`);
+    } catch (e) {
+      const a = document.createElement("div"); a.className = "form-alert"; a.setAttribute("role", "alert");
+      a.innerHTML = expired(e) ? "This reset link has expired. <a href=\"#forgot\">Send a new one</a>." : e && e.code === "auth/weak-password" ? "Please choose a stronger password." : "We couldn't save your new password. Please try again.";
+      $("#reset-form").prepend(a);
+    }
   });
 };
 
@@ -5592,7 +5686,7 @@ document.addEventListener("click", e => {
 });
 window.addEventListener("popstate", e => go((e.state && e.state.h) || location.hash || "home", { fromHistory: true }));
 window.addEventListener("hashchange", () => go(location.hash || "home", { fromHistory: true }));
-currentHash = location.hash.replace(/^#/, "") || "home";
+currentHash = AUTH_ACTION ? "auth-action" : location.hash.replace(/^#/, "") || "home";
 route = parseRoute(currentHash);
 renderView();
 // once accounts are ready (Firebase connected, or fallback chosen), refresh anything that depends on who's signed in
