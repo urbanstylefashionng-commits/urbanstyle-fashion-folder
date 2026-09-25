@@ -278,6 +278,7 @@ async function sendOrder(fb, body, res, site) {
 /* ---------- 4. live chat: alert the store when a customer writes ---------- */
 const CHAT_ALERT_GAP_MS = 30 * 60 * 1000;  // one alert per conversation per 30 minutes
 const CHAT_REPLY_GAP_MS = 3 * 60 * 1000;   // one "we replied" email per conversation per 3 minutes
+const claimTime = s => new Date(String(s).split("#")[0]).getTime() || 0;
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "urbanstylefashionng@gmail.com").split(",").map(s => s.trim().toLowerCase());
 async function chatMessages(chatId) {
   const { ok, j } = await google(`${FS()}/chats/${encodeURIComponent(chatId)}/messages?pageSize=30&orderBy=${encodeURIComponent("at desc")}`, null, "GET");
@@ -292,11 +293,18 @@ async function sendChatAlert(fb, body, res, site) {
   const ref = fb.firestore().collection("chats").doc(chatId), snap = await ref.get();
   if (!snap.exists) return res.status(404).json({ ok: false, error: "no-chat" });
   const c = snap.data();
-  if (c.alertedAt && Date.now() - new Date(c.alertedAt).getTime() < CHAT_ALERT_GAP_MS) return res.status(200).json({ ok: true, skipped: true });
+  if (c.alertedAt && Date.now() - claimTime(c.alertedAt) < CHAT_ALERT_GAP_MS) return res.status(200).json({ ok: true, skipped: true });
   const msgs = await chatMessages(chatId);
   if (!msgs.some(m => m.from === "customer")) return res.status(200).json({ ok: true, skipped: true, reason: "no-customer-message-yet" });
   const recent = msgs.filter(m => m.from !== "bot").slice(-5);
-  await brevo({
+  // claim this alert first, so two messages sent a second apart can't both trigger an email;
+  // if sending fails, the claim is undone so the next message tries again
+  const claim = new Date().toISOString() + "#" + crypto.randomBytes(4).toString("hex");
+  await ref.set({ alertedAt: claim }, { merge: true });
+  await new Promise(r => setTimeout(r, 400));
+  const again = (await ref.get()).data() || {};
+  if (again.alertedAt !== claim) return res.status(200).json({ ok: true, skipped: true, reason: "already-alerting" });
+  try { await brevo({
     to: STORE_EMAIL, name: BRAND, replyTo: c.email || undefined,
     subject: `💬 New chat from ${c.name || "a customer"}`,
     html: layout({
@@ -307,8 +315,7 @@ async function sendChatAlert(fb, body, res, site) {
       after: `<p style="margin:0">Reply in the Support inbox so the customer sees it in the chat and gets it by email. You can also reply to this email to write to them directly.</p>`
     }),
     text: `${c.name || "A customer"} (${c.email || ""}) is waiting in the live chat:\n\n${recent.map(m => (m.from === "customer" ? "Customer: " : "Us: ") + m.text).join("\n")}\n\nReply: ${site}/#support-${chatId}`
-  });
-  await ref.set({ alertedAt: new Date().toISOString() }, { merge: true }); // only counts once the email has actually gone
+  }); } catch (e) { await ref.set({ alertedAt: c.alertedAt || "" }, { merge: true }).catch(() => {}); throw e; }
   return res.status(200).json({ ok: true, sent: true });
 }
 
@@ -324,11 +331,15 @@ async function sendChatReply(fb, req, body, res, site) {
   if (!snap.exists) return res.status(404).json({ ok: false, error: "no-chat" });
   const c = snap.data();
   if (!c.email) return res.status(200).json({ ok: true, skipped: true });
-  if (c.replyMailedAt && Date.now() - new Date(c.replyMailedAt).getTime() < CHAT_REPLY_GAP_MS) return res.status(200).json({ ok: true, skipped: true });
+  if (c.replyMailedAt && Date.now() - claimTime(c.replyMailedAt) < CHAT_REPLY_GAP_MS) return res.status(200).json({ ok: true, skipped: true });
   const msgs = await chatMessages(chatId);
   const lastCustomer = msgs.map(m => m.from).lastIndexOf("customer");
   const replies = msgs.slice(lastCustomer + 1).filter(m => m.from === "agent");
   if (!replies.length) return res.status(200).json({ ok: true, skipped: true, reason: "no-reply-yet" });
+  const claim = new Date().toISOString() + "#" + crypto.randomBytes(4).toString("hex");
+  await ref.set({ replyMailedAt: claim }, { merge: true });
+  await new Promise(r => setTimeout(r, 400));
+  if (((await ref.get()).data() || {}).replyMailedAt !== claim) return res.status(200).json({ ok: true, skipped: true, reason: "already-sending" });
   const first = String(c.name || "").split(" ")[0] || "there";
   const url = `${site}/?chat=${chatId}`;
   const context = msgs.slice(Math.max(0, lastCustomer), lastCustomer + 1).concat(replies);
@@ -342,8 +353,7 @@ async function sendChatReply(fb, req, body, res, site) {
       after: `<p style="margin:0">You can also simply reply to this email, or message us on <a href="${WHATSAPP}" style="color:#141414">WhatsApp</a> (${PHONE}).</p>`
     }),
     text: `Hi ${first}, we've replied to your message:\n\n${replies.map(m => m.text).join("\n\n")}\n\nContinue the chat: ${url}\n\n${signoffText()}`
-  });
-  await ref.set({ replyMailedAt: new Date().toISOString() }, { merge: true });
+  }).catch(async e => { await ref.set({ replyMailedAt: c.replyMailedAt || "" }, { merge: true }).catch(() => {}); throw e; });
   return res.status(200).json({ ok: true, sent: true });
 }
 
