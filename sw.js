@@ -3,7 +3,7 @@
 //   with the last saved copy used only when the customer is offline.
 // - Icons and other files from this site are cached for fast repeat visits.
 // - Anything from other sites (Firebase, Paystack, fonts) and the /api/ payment check is never cached.
-const CACHE = "urbanstyle-v2"; // change this name whenever you want every visitor's saved copy cleared
+const CACHE = "urbanstyle-v3"; // change this name whenever you want every visitor's saved copy cleared
 const SHELL = ["./", "./index.html", "./icon-192.png", "./icon-512.png", "./manifest.webmanifest"];
 
 self.addEventListener("install", e => {

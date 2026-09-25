@@ -11,7 +11,7 @@
 <meta property="og:site_name" content="URBANSTYLE FASHION">
 <meta property="og:title" content="URBANSTYLE FASHION — Streetwear built for real life">
 <meta property="og:description" content="Heavyweight tees, hoodies, denim and accessories. Designed in Redemption City, delivered across Nigeria.">
-<meta property="og:image" content="og-image.png">
+<meta property="og:image" content="https://urbanstyle-three.vercel.app/og-image.png">
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@urbanstylesng">
@@ -103,11 +103,13 @@ svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 .cart-count.has-items{transform:scale(1)}
 .cart-count.bump{animation:bump .4s var(--ease)}
 @keyframes bump{40%{transform:scale(1.4)}}
-@media (max-width:379px){
-  .header-inner{gap:4px}.logo{gap:8px}.logo-mark{width:32px;height:32px}
-  .logo-word b{font-size:14px}.logo-word small{font-size:8px;letter-spacing:.3em}
-  .icon-btn{width:40px;height:44px}
+/* compact header for phones (most are 360–430px wide): logo + five icons must fit on one line */
+@media (max-width:449px){
+  .header-inner{gap:4px}.logo{gap:8px;padding-right:0}.logo-mark{width:34px;height:34px}
+  .logo-word b{font-size:15px}.logo-word small{font-size:8px;letter-spacing:.3em}
+  .header-actions{gap:0}.icon-btn{width:40px;height:44px}
 }
+@media (max-width:379px){.logo-mark{width:32px;height:32px}.logo-word b{font-size:14px}}
 @media (max-width:299px){.logo-word{display:none}}
 @media (min-width:1024px){
   .menu-btn{display:none}
@@ -191,6 +193,9 @@ body.has-sticky .toast{bottom:calc(env(safe-area-inset-bottom,0px) + 86px)}
 .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 12px}
 @media (min-width:768px){.grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:32px 20px}}
 @media (min-width:1024px){.grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:40px 24px}}
+/* beside the filters there's less room: three columns until the screen is wide enough for four */
+@media (min-width:1024px) and (max-width:1279px){.shop-layout .grid:not(.is-large){grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:767px){.card-name{font-size:14px}}
 .card{position:relative;display:flex;flex-direction:column;min-width:0}
 .card-media{position:relative;display:block;aspect-ratio:4/5;max-width:100%;border-radius:var(--r-md);overflow:hidden;background:var(--stone);transition:box-shadow .25s var(--ease),transform .15s var(--ease)}
 .card-media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity .35s var(--ease),transform .6s var(--ease)}
@@ -202,12 +207,14 @@ body.has-sticky .toast{bottom:calc(env(safe-area-inset-bottom,0px) + 86px)}
 .wish svg.i{width:34px;height:34px;padding:7px;border-radius:50%;background:rgba(255,255,255,.92);stroke-width:2;transition:transform .2s var(--ease)}
 .wish[aria-pressed="true"] svg.i{fill:var(--ink)}
 .wish:active svg.i{transform:scale(.85)}
-.card-body{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"cat add" "name add" "price add";column-gap:8px;padding-top:12px}
+.card-body{display:grid;column-gap:8px;padding-top:12px}
 .card-cat{grid-area:cat;font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.card-name{grid-area:name;font:700 15px/1.3 var(--font-body);letter-spacing:0;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* names show in full over up to two lines; the space for two lines is always kept so cards line up */
+.card-name{grid-area:name;font:700 15px/1.3 var(--font-body);letter-spacing:0;margin-top:2px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;min-height:2.6em}
+.card-rating{grid-area:rating;min-height:18px;display:flex;align-items:center}
 .card-name a{text-decoration:none}
 .card-name a::after{content:"";position:absolute;inset:0 0 auto 0;aspect-ratio:4/5;z-index:1}
-.card-price{grid-area:price;min-height:28px;margin-top:4px;font-size:15px}
+.card-price{grid-area:price;min-height:28px;margin-top:4px;font-size:15px;display:flex;align-items:center;flex-wrap:wrap;gap:0 6px}
 .card-price .price-off{display:none}
 .card-foot{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
 .card-details{position:relative;z-index:2;font-size:12.5px;font-weight:700;text-decoration:underline;text-decoration-color:var(--lime);text-decoration-thickness:3px;text-underline-offset:3px;white-space:nowrap;padding:8px 0}
@@ -231,15 +238,13 @@ body.has-sticky .toast{bottom:calc(env(safe-area-inset-bottom,0px) + 86px)}
 .btn-atc.is-added .atc-ok svg.i{stroke-width:3;animation:pop .35s var(--ease)}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes pop{from{transform:scale(.3)}}
-.quick-add{grid-area:add;align-self:center;width:44px;padding:0}
-.quick-add .atc-label,.quick-add .atc-done{display:none!important}
-.quick-add svg.i{width:20px;height:20px;stroke-width:2.2}
-@media (min-width:1024px){
-  .card-body{grid-template-columns:minmax(0,1fr);grid-template-areas:"cat" "name" "price" "add"}
-  .quick-add{width:100%;margin-top:12px;font-size:14px}
-  .quick-add .atc-label{display:inline!important}
-  .btn-atc.quick-add.is-added .atc-done{display:inline!important}
-}
+/* a full-width Add to Cart under the price on every screen size, so prices never get squeezed */
+.card-body{grid-template-columns:minmax(0,1fr);grid-template-areas:"cat" "name" "price" "rating" "add"}
+.quick-add{grid-area:add;width:100%;margin-top:4px;padding:0 10px;font-size:14px;min-height:42px}
+.quick-add svg.i{width:18px;height:18px;stroke-width:2.2}
+.quick-add .atc-done{display:none!important}
+.btn-atc.quick-add.is-added .atc-done{display:inline!important}
+@media (min-width:1024px){.quick-add{margin-top:6px;min-height:44px}}
 
 /* ---------- sections ---------- */
 .section{padding-block:44px}
@@ -1532,110 +1537,110 @@ const PRODUCTS = [
 
   /* ---- The photographed collection: real studio photos in photos/ (first photo = main, second = hover/back, last = close-up) ---- */
   P({ id: "p25", name: "Magenta Ruched Halter Maxi Dress", category: "women", type: "dress", price: 38000, isNew: true, colors: [C.magenta], sizes: DRESS, low: ["Magenta|8"],
-    photos: ["photos/magenta-halter-1.jpg", "photos/magenta-halter-2.jpg", "photos/magenta-halter-3.jpg"],
+    photos: ["photos/magenta-halter-1.jpg?v=2", "photos/magenta-halter-2.jpg?v=2", "photos/magenta-halter-3.jpg?v=2"],
     desc: "A statement maxi in a rich magenta jersey that moves with you. The halter neck crosses into a gathered, sculpted bodice with a knotted keyhole detail, then the dress falls close through the waist and hips to a floor-skimming hem. Soft ruching along the midsection smooths and flatters, and the open back keeps it light on warm evenings. Wear it with gold jewellery and bare shoulders for dinners, birthdays, photoshoots and weddings.",
     highlights: ["Halter neck with knotted keyhole bodice", "Ruched waist that smooths and flatters", "Floor-length, body-skimming silhouette", "Soft stretch jersey that holds its colour"],
     material: "92% viscose, 8% elastane stretch jersey (mid-weight, opaque).", care: "Hand wash cold or machine wash on delicate in a laundry bag. Dry flat in the shade. Cool iron on the reverse.", fit: "Close fit with good stretch. Take your usual size; size up for a softer fit through the hips." }),
   P({ id: "p26", name: "Chocolate Tulle-Trim Wrap Maxi Dress", category: "women", type: "dress", price: 58000, isNew: true, colors: [C.chocolate], sizes: DRESS, low: ["Chocolate|16"],
-    photos: ["photos/cocoa-wrap-1.jpg", "photos/cocoa-wrap-2.jpg", "photos/cocoa-wrap-3.jpg", "photos/cocoa-wrap-4.jpg"],
+    photos: ["photos/cocoa-wrap-1.jpg?v=2", "photos/cocoa-wrap-2.jpg?v=2", "photos/cocoa-wrap-3.jpg?v=2", "photos/cocoa-wrap-4.jpg?v=2"],
     desc: "Our most dramatic piece. A deep chocolate wrap dress with a plunging V neckline, a self-tie waist and full bishop sleeves finished in layers of ruffled tulle. The same frothy tulle trims the sweeping hem, and a high front slit shows off your sandals as you walk. The wrap ties at the side so you can set the waist exactly where you want it. Made for birthday shoots, bridal showers, maternity photos and red-carpet evenings.",
     highlights: ["True wrap front with adjustable side tie", "Bishop sleeves with ruffled tulle cuffs", "Tulle-trimmed sweeping hem with front slit", "Fully lined skirt for a clean drape"],
     material: "Shell: 100% polyester crepe. Trim: soft nylon tulle. Lining: polyester.", care: "Dry clean recommended, or hand wash cold and hang to dry. Steam the tulle to refresh; do not iron it.", fit: "Wrap style, adjustable at the waist. Relaxed through the sleeves and skirt. Take your usual dress size." }),
   P({ id: "p27", name: "Essential White Crew Tee", category: "men", type: "tee", price: 12500, colors: [C.white], sizes: TOPS.slice(), surcharge: { XXL: 1000 }, low: ["White|XL"],
-    photos: ["photos/white-tee-1.jpg", "photos/white-tee-2.jpg", "photos/white-tee-3.jpg"],
+    photos: ["photos/white-tee-1.jpg?v=2", "photos/white-tee-2.jpg?v=2", "photos/white-tee-3.jpg?v=2"],
     desc: "The white tee every wardrobe is built on. Cut from soft, breathable combed cotton with a clean ribbed crew neck that keeps its shape, and a regular fit that sits neatly on the shoulders without clinging. Wear it on its own with jeans, under a blazer or shirt, or with our cargo pants for an easy weekend uniform. Buy two: one for now and one for later.",
     highlights: ["Ribbed crew neck that doesn't stretch out", "Soft, breathable combed cotton", "Regular fit: neat, not tight", "Opaque bright white"],
     material: "100% combed cotton single jersey, 180gsm.", care: "Machine wash 30°C with whites. Do not bleach. Tumble dry low or line dry. Iron on the reverse.", fit: "Regular fit. True to size." }),
   P({ id: "p28", name: "Olive Double-Breasted Suit", category: "men", type: "suit", price: 125000, isNew: true, colors: [C.olivesuit], sizes: SUIT, surcharge: { "46R": 5000 }, low: ["Olive|44R"],
-    photos: ["photos/olive-suit-1.jpg", "photos/olive-suit-2.jpg", "photos/olive-suit-3.jpg", "photos/olive-suit-4.jpg", "photos/olive-suit-5.jpg"],
+    photos: ["photos/olive-suit-1.jpg?v=2", "photos/olive-suit-2.jpg?v=2", "photos/olive-suit-3.jpg?v=2", "photos/olive-suit-4.jpg?v=2", "photos/olive-suit-5.jpg?v=2"],
     desc: "A sharp two-piece suit in a warm olive cotton twill, tailored in one of our partner workshops. The six-button double-breasted jacket has wide peak lapels, a chest pocket, flap pockets and working four-button cuffs; the matching trousers have a flat front and a straight leg. Wear the full suit with a white shirt and a red tie for weddings, church and interviews, or break it up and wear the jacket over a white tee.",
     highlights: ["Six-button double-breasted jacket with peak lapels", "Matching flat-front straight-leg trousers", "Four-button cuffs and flap pockets", "Half-lined for comfort in the heat"],
     material: "98% cotton, 2% elastane twill. Lining: viscose.", care: "Dry clean only. Hang on a shaped hanger between wears. Steam to remove creases.", fit: "Tailored fit. Sizes are chest measurements in inches with a regular length (R); trousers come with the matching waist. Free hemming on request: send your inside-leg measurement on WhatsApp after ordering." }),
   P({ id: "p29", name: "Kids' Personalised Football Kit", category: "kids", type: "kit", price: 22000, colors: [C.redwhite], sizes: KIDS, low: ["Red/White|10–11Y"],
-    photos: ["photos/kids-kit-1.jpg", "photos/kids-kit-2.jpg", "photos/kids-kit-3.jpg"],
+    photos: ["photos/kids-kit-1.jpg?v=2", "photos/kids-kit-2.jpg?v=2", "photos/kids-kit-3.jpg?v=2"],
     desc: "Make them the star of the match, the birthday or the photoshoot. A red and white football jersey with white raglan sleeves and a matching pair of striped shorts, personalised with your child's name and number printed on the back. Lightweight, breathable and quick-drying, so it's as good for Saturday football as it is for a birthday shoot.",
     highlights: ["Jersey and shorts set", "Your child's name and number printed on the back", "Breathable, quick-dry sports fabric", "Elastic waist shorts with drawcord"],
     material: "100% recycled polyester sports mesh. Print: heat-applied flex.", care: "Machine wash cold, inside out. Do not iron the print. Line dry.", fit: "Regular sports fit. Choose by age; if between sizes, go up. After ordering, send the name and number to print on WhatsApp (0816 801 3667). Personalised kits take 2–3 extra working days." }),
   P({ id: "p30", name: "Ankara Peplum Blouse", category: "women", type: "blouse", price: 18500, salePrice: 15500, colors: [C.ankara], sizes: DRESS, low: ["Green Ankara|12"],
-    photos: ["photos/ankara-peplum-1.jpg", "photos/ankara-peplum-2.jpg"],
+    photos: ["photos/ankara-peplum-1.jpg?v=2", "photos/ankara-peplum-2.jpg?v=2"],
     desc: "Bold Ankara print, cut clean. A green and red wax-print blouse with a tie-neck front, three-quarter puff sleeves gathered at the cuff, and a fitted waist that flares into a flattering peplum. Pair it with a black pencil skirt for the office or church, or with jeans for a Saturday out. Every piece is cut from real wax-print cotton, so the pattern placement is slightly different on each one.",
     highlights: ["Genuine wax-print Ankara cotton", "Tie-neck front with keyhole", "Three-quarter puff sleeves with gathered cuffs", "Fitted waist and flared peplum"],
     material: "100% cotton wax print.", care: "Hand wash cold, inside out, with dark colours. Dry in the shade. Iron on the reverse.", fit: "Fitted at the bust and waist. Take your usual dress size. Skirt not included." }),
   P({ id: "p31", name: "Abstract Line-Print Maxi Dress", category: "women", type: "dress", price: 35000, colors: [C.printbw], sizes: DRESS,
-    photos: ["photos/line-print-maxi-1.jpg", "photos/line-print-maxi-2.jpg", "photos/line-print-maxi-3.jpg"],
+    photos: ["photos/line-print-maxi-1.jpg?v=2", "photos/line-print-maxi-2.jpg?v=2", "photos/line-print-maxi-3.jpg?v=2"],
     desc: "Easy elegance for long days. A flowing black maxi dress covered in a hand-drawn white line print, with a pussy-bow tie neck, long balloon sleeves with elasticated cuffs, and a gently gathered waist. The full skirt swishes as you move and sits beautifully when you sit down. Modest, comfortable and polished enough for church, work, weddings and family photos.",
     highlights: ["Pussy-bow tie neck", "Long balloon sleeves with elasticated cuffs", "Gathered waist and full, flowing skirt", "Lightweight fabric that doesn't cling"],
     material: "100% polyester crepe de chine (soft, lightweight, crease-resistant).", care: "Machine wash cold on delicate. Hang to dry. Cool iron if needed.", fit: "Relaxed fit with a defined waist. Take your usual dress size." }),
   P({ id: "p32", name: "Blush Embroidered Organza Shift Dress", category: "women", type: "dress", price: 42000, isNew: true, colors: [C.blush], sizes: DRESS, low: ["Blush|8"],
-    photos: ["photos/blush-organza-1.jpg", "photos/blush-organza-2.jpg"],
+    photos: ["photos/blush-organza-1.jpg?v=2", "photos/blush-organza-2.jpg?v=2"],
     desc: "Soft, romantic and quietly dressy. A blush pink shift dress in layered crinkle organza, with a raised floral embroidery that climbs from the hem to the neckline and tiny scattered sparkle stones that catch the light. Sheer puff sleeves, a round neck with a keyhole, and a relaxed A-line shape that ends just above the knee. Perfect for brunch, engagements, baby showers and date nights.",
     highlights: ["Raised floral embroidery with sparkle stones", "Layered crinkle organza over a soft lining", "Sheer puff sleeves", "Relaxed A-line, above-the-knee length"],
     material: "Outer: 100% polyester organza with embroidery. Lining: polyester.", care: "Hand wash cold, gently. Do not wring. Hang to dry. Steam only; do not iron the embroidery.", fit: "Relaxed, swingy A-line. Take your usual size, or size down for a neater fit." }),
   P({ id: "p33", name: "Crown Graphic Oversized Tee", category: "men", type: "tee", price: 18000, isNew: true, colors: [C.black], sizes: TOPS, surcharge: { XXL: 1500 }, low: ["Black|M"],
-    photos: ["photos/crown-tee-1.jpg", "photos/crown-tee-2.jpg"],
+    photos: ["photos/crown-tee-1.jpg?v=2", "photos/crown-tee-2.jpg?v=2"],
     desc: "A heavyweight black tee with attitude. The front carries a large puff-print graphic with a grey crown behind bold, hand-cut letters, and a tonal patch pocket at the hem adds a streetwear detail you'll catch on the second look. Dropped shoulders and a longer, boxy body give it that oversized drape. Wear it with cargos and sneakers.",
     highlights: ["Large raised puff-print graphic", "Patch pocket detail at the hem", "Dropped shoulders, boxy oversized cut", "Heavyweight cotton that holds its shape"],
     material: "100% cotton, 240gsm jersey. Puff-print graphic.", care: "Machine wash cold, inside out. Do not iron the print. Line dry.", fit: "Oversized. Take your usual size for the relaxed look shown, or size down for a regular fit." }),
 
   /* ---- Second drop: streetwear, bags, watches, slides and caps ---- */
   P({ id: "p34", name: "Green '24' Varsity Jersey Tee", category: "men", type: "tee", price: 16000, isNew: true, colors: [C.green], sizes: TOPS.slice(), surcharge: { XXL: 1000 }, low: ["Green|M"],
-    photos: ["photos/green-24-tee-1.jpg"],
+    photos: ["photos/green-24-tee-1.jpg?v=2"],
     desc: "Game-day energy for everyday wear. A forest-green jersey tee with a big white '24' across the chest and bold white stripes around the sleeves, inspired by vintage American football jerseys. The cut is loose and straight with dropped shoulders, so it hangs easy over jeans, cargos or track pants. A statement piece that needs nothing else.",
     highlights: ["Oversized '24' front graphic", "Contrast striped sleeves", "Relaxed, straight retro cut", "Soft, breathable jersey"],
     material: "100% cotton jersey. Screen-printed numbers.", care: "Machine wash cold, inside out. Do not iron the print. Line dry.", fit: "Relaxed fit. Take your usual size, or size up for an extra-baggy look." }),
   P({ id: "p35", name: "Plaid Side-Stripe Track Pants", category: "men", type: "pants", style: "track", price: 24000, isNew: true, colors: [C.plaid], sizes: TOPS.slice(), low: ["Black/Cream Plaid|L"],
-    photos: ["photos/plaid-track-pants-1.jpg"],
+    photos: ["photos/plaid-track-pants-1.jpg?v=2"],
     desc: "Where check trousers meet track pants. A soft brushed plaid in black and cream, cut wide and straight, with triple white stripes that curve down the side of each leg. The elastic waist has a chunky white drawcord, so they're as comfortable as joggers but look far more put together. Style them with a plain tee and slides, or a hoodie and sneakers.",
     highlights: ["Brushed black-and-cream plaid", "Curved triple side stripes", "Elastic waist with thick drawcord", "Wide, straight leg that pools slightly at the hem"],
     material: "Brushed cotton-blend flannel.", care: "Machine wash cold with dark colours. Line dry. Warm iron on the reverse.", fit: "Relaxed and wide. Elastic waist fits a range of sizes; choose your usual size." }),
   P({ id: "p36", name: "Bronze Shimmer Wrap Midi Dress", category: "women", type: "dress", price: 26000, colors: [C.bronze], sizes: DRESS, low: ["Bronze|14"],
-    photos: ["photos/bronze-wrap-midi-1.jpg"],
+    photos: ["photos/bronze-wrap-midi-1.jpg?v=2"],
     desc: "Quiet sparkle for any occasion. A chocolate-bronze midi dress in a soft stretch knit with a fine metallic shimmer, a wrap-effect front that gathers at the hip, and long fitted sleeves. The asymmetric hem falls just below the knee. It's flattering, comfortable enough to wear all day, and easy to dress up with heels or down with flat sandals.",
     highlights: ["Fine metallic shimmer knit", "Wrap-effect gathered front", "Long fitted sleeves", "Asymmetric below-the-knee hem"],
     material: "Stretch knit with metallic yarn (polyester, elastane, lurex).", care: "Hand wash cold, inside out. Dry flat. Do not iron.", fit: "Close fit with good stretch. Take your usual size." }),
   P({ id: "p37", name: "Vintage Tan Leather Holdall Bag", category: "accessories", type: "holdall", price: 32000, colors: [C.tan], sizes: ONE, low: ["Tan|One Size"],
-    photos: ["photos/tan-leather-bag-1.jpg", "photos/tan-leather-bag-2.jpg"],
+    photos: ["photos/tan-leather-bag-1.jpg?v=2", "photos/tan-leather-bag-2.jpg?v=2"],
     desc: "A bag with character. This rounded holdall comes in a rich, glossy tan with a buckle-strap front pocket, a top zip and a long shoulder strap. It's roomy enough for a laptop, a change of clothes or a day's essentials, and it looks just as good with a suit as it does with jeans. The finish deepens with use for a true vintage feel.",
     highlights: ["Glossy tan finish with vintage character", "Front pocket with metal buckle", "Top zip closure", "Adjustable shoulder strap, plus grab handles"],
     material: "Leather-look coated upper, fabric lining, metal hardware.", care: "Wipe with a damp cloth. Keep away from direct heat. Stuff with paper when stored to keep its shape.", fit: "Approx. 38 × 28 × 16 cm. Shoulder strap adjusts." }),
   P({ id: "p38", name: "Acid-Wash Star Denim Jorts", category: "men", type: "shorts", price: 19500, isNew: true, colors: [C.acid], sizes: WAIST, low: ["Acid Wash|32"],
-    photos: ["photos/star-denim-jorts-1.jpg"],
+    photos: ["photos/star-denim-jorts-1.jpg?v=2"],
     desc: "The long, baggy denim short everyone wants right now. Heavy acid-washed blue denim, cut wide and long so it ends just below the knee, with light fading, frayed hems and a small red star-and-crescent embroidery on the leg. Wear them low with a big tee and slides for the full look.",
     highlights: ["Acid-wash faded denim", "Long, baggy below-the-knee length", "Red embroidered star detail", "Raw, frayed hems"],
     material: "100% cotton denim.", care: "Wash inside out, cold, with dark colours. Line dry.", fit: "Baggy fit. True to waist size; size up for an even looser look." }),
   P({ id: "p39", name: "Pink Camo Canvas Zip Pouch", category: "accessories", type: "pouch", price: 7000, colors: [C.camo], sizes: ONE,
-    photos: ["photos/camo-pouch-1.jpg"],
+    photos: ["photos/camo-pouch-1.jpg?v=2"],
     desc: "A small pouch that keeps your bag organised. Sturdy woven canvas in a soft pink, sage and khaki camo, with a black zip along the top. Use it for makeup, chargers and cables, pens, or as a slim clutch on its own. It makes an easy, affordable gift.",
     highlights: ["Pink, sage and khaki camo canvas", "Smooth full-length top zip", "Flat base that stands on its own", "Fits phone, cables, makeup or pens"],
     material: "Woven cotton canvas, fabric lining, metal zip.", care: "Spot clean with a damp cloth.", fit: "Approx. 25 × 16 cm." }),
   P({ id: "p40", name: "Rose Pleated Drop-Waist Dress", category: "women", type: "dress", price: 23000, colors: [C.rose], sizes: DRESS, low: ["Rose|10"],
-    photos: ["photos/rose-pleated-dress-1.jpg"],
+    photos: ["photos/rose-pleated-dress-1.jpg?v=2"],
     desc: "Sweet, simple and easy to wear. A rose-pink dress with a smooth, fitted bodice, flared trumpet cuffs on the sleeves and a knife-pleated skirt that starts at the hip. Thin black trims on the cuffs and skirt give it a neat finish. It's perfect for church, family events and Sunday lunch.",
     highlights: ["Fitted bodice with round neck", "Flared trumpet cuffs", "Pleated drop-waist skirt", "Contrast black trim details"],
     material: "Soft stretch crepe.", care: "Hand wash cold. Hang to dry. Cool iron, pressing the pleats gently.", fit: "Fitted through the body, flared at the hem. Take your usual size." }),
   P({ id: "p41", name: "Black Square Crystal-Bezel Watch", category: "accessories", type: "watch", price: 45000, isNew: true, colors: [C.black], sizes: ONE, low: ["Black|One Size"],
-    photos: ["photos/square-crystal-watch-1.jpg"],
+    photos: ["photos/square-crystal-watch-1.jpg?v=2"],
     desc: "Bold and elegant at once. A square black watch with crystal-set top and bottom bezels, a matte black dial with rose-gold hands and markers, and a small seconds sub-dial. The soft black silicone strap is comfortable in the heat. It works as an everyday statement watch or a dressy evening piece.",
     highlights: ["Square case with crystal-set bezel", "Rose-gold hands and markers", "Small seconds sub-dial", "Comfortable black silicone strap"],
     material: "Black-plated metal case, mineral glass, silicone strap. Quartz movement.", care: "Wipe clean. Splash resistant only; don't swim or shower with it.", fit: "Case approx. 38 × 44 mm. Adjustable buckle strap." }),
   P({ id: "p42", name: "Gold Roman-Numeral Bracelet Watch", category: "accessories", type: "watch", price: 38000, colors: [C.gold], sizes: ONE,
-    photos: ["photos/gold-roman-watch-1.jpg"],
+    photos: ["photos/gold-roman-watch-1.jpg?v=2"],
     desc: "A classic that never goes out of style. A polished gold watch with a white dial, gold Roman numerals, crystal hour markers and a date window at three o'clock, on a matching link bracelet. It looks great on its own or stacked with gold bangles, and makes a special gift for birthdays, anniversaries and graduations.",
     highlights: ["Polished gold-tone case and bracelet", "White dial with Roman numerals", "Crystal hour markers", "Date window"],
     material: "Gold-tone stainless steel, mineral glass. Quartz movement.", care: "Wipe with a soft dry cloth. Splash resistant only.", fit: "Case approx. 40 mm. Links can be removed to fit your wrist; ask us or any watch repairer." }),
   P({ id: "p43", name: "Black Leather H-Strap Slides", category: "accessories", type: "slides", price: 25000, colors: [C.black], sizes: SHOE, low: ["Black|43"],
-    photos: ["photos/h-strap-slides-1.jpg"],
+    photos: ["photos/h-strap-slides-1.jpg?v=2"],
     desc: "Smart slides for easy days. A wide black leather strap with a cut-out 'H' shape and a gold-tone letter at the centre, on a cushioned black footbed with a natural cork-effect sole. Wear them with shorts, linen trousers or a kaftan for a clean, relaxed look.",
     highlights: ["Wide black leather-look strap", "Gold-tone centre detail", "Cushioned footbed", "Cork-effect contoured sole"],
     material: "Leather-look upper, padded footbed, rubber sole with cork-effect edge.", care: "Wipe clean with a damp cloth. Keep out of long soaks.", fit: "True to EU size. If you're a half size, size up." }),
   P({ id: "p44", name: "Red Sport Strap Watch", category: "accessories", type: "watch", price: 35000, colors: [C.red], sizes: ONE,
-    photos: ["photos/red-sport-watch-1.jpg"],
+    photos: ["photos/red-sport-watch-1.jpg?v=2"],
     desc: "A sporty watch that turns heads. A brushed silver case with a screw-style bezel and a deep red sunray dial, finished with polished silver hands and markers and a bright red strap. It adds a hit of colour to a plain outfit, whether it's a white tee or a dark suit.",
     highlights: ["Brushed silver sports case", "Red sunray dial", "Bright red strap", "Easy-read silver hands and markers"],
     material: "Stainless steel case, mineral glass, rubber strap. Quartz movement.", care: "Wipe clean. Splash resistant only.", fit: "Case approx. 42 mm. Adjustable buckle strap." }),
   P({ id: "p45", name: "Custom Print Dad Cap", category: "accessories", type: "cap", price: 9500, colors: [C.red, C.black], sizes: ONE,
-    photos: ["photos/custom-cap-red-1.jpg", "photos/custom-cap-duo-1.jpg"],
-    colorPhotos: { 0: ["photos/custom-cap-red-1.jpg", "photos/custom-cap-duo-1.jpg"], 1: ["photos/custom-cap-black-1.jpg", "photos/custom-cap-black-2.jpg"] },
+    photos: ["photos/custom-cap-red-1.jpg?v=2", "photos/custom-cap-duo-1.jpg?v=2"],
+    colorPhotos: { 0: ["photos/custom-cap-red-1.jpg?v=2", "photos/custom-cap-duo-1.jpg?v=2"], 1: ["photos/custom-cap-black-1.jpg?v=2", "photos/custom-cap-black-2.jpg?v=2"] },
     desc: "Your words on a cap. A soft, unstructured six-panel cotton cap with a curved brim and an adjustable back strap, printed with the text or logo of your choice. It's perfect for birthdays, anniversaries, church and school events, teams and brand merch. The red cap shown was printed for a 50th birthday. Choose black for a plain cap with no print.",
     highlights: ["Your own text or logo printed on the front", "Soft, unstructured six-panel cotton", "Curved brim", "Adjustable strap with metal buckle"],
     material: "100% cotton twill. Heat-press or embroidered print.", care: "Spot clean only. Don't put it in the washing machine.", fit: "One size, adjustable to fit most adults. For custom printing, send your text or logo on WhatsApp (0816 801 3667) after ordering. Printed caps take 2–3 extra working days; bulk orders are welcome." })
@@ -2183,6 +2188,9 @@ function fbErr(e) {
   console.warn("[URBANSTYLE] Firebase error:", c || e);
   return new Error(c || (e && e.message) || "unknown");
 }
+// Verification and password-reset emails: after the customer clicks the link, Firebase's confirmation page
+// shows a "Continue" button that brings them back to the store. (Only on a real web address.)
+const emailLinkSettings = route => /^https?:$/.test(location.protocol) ? { url: location.origin + "/#" + route } : undefined;
 const FirebaseAuth = {
   _u: null, _busy: false,
   current() { return this._u; },
@@ -2225,7 +2233,7 @@ const FirebaseAuth = {
       const profile = { first: first.trim(), last: last.trim(), email: user.email, phone: "", address: null, wish: store.get("wish", []), marketing: !!marketing, created: new Date().toISOString() };
       store.set("wish", []);
       this._u = Object.assign({}, profile, { id: user.uid, verified: false, orders: [], profileLoaded: true });
-      user.sendEmailVerification().catch(() => {});
+      user.sendEmailVerification(emailLinkSettings("account")).catch(() => user.sendEmailVerification().catch(() => {}));
       // save the profile (and any guest order placed with this email) without holding up the welcome screen
       const lo = store.get("lastOrder", null);
       this._afterProfile((async () => {
@@ -2277,10 +2285,10 @@ const FirebaseAuth = {
     catch (e) { console.warn("[URBANSTYLE] Couldn't record the order in Firestore:", e.code || e.message || e); }
   },
   async resetPassword(email) {
-    try { await fb.auth.sendPasswordResetEmail(email.trim()); }
+    try { await fb.auth.sendPasswordResetEmail(email.trim(), emailLinkSettings("login")).catch(e => { if (e && /continue-uri|unauthorized/i.test(e.code || "")) return fb.auth.sendPasswordResetEmail(email.trim()); throw e; }); }
     catch (e) { const x = fbErr(e); if (x.message !== "invalid") throw x; } // don't reveal whether an account exists
   },
-  async resendVerification() { const u = fb.auth.currentUser; if (u) await u.sendEmailVerification(); },
+  async resendVerification() { const u = fb.auth.currentUser; if (u) await u.sendEmailVerification(emailLinkSettings("account")).catch(() => u.sendEmailVerification()); },
   async deleteAccount(pw) {
     await this._reauth(pw);
     this._busy = true;
@@ -2741,8 +2749,8 @@ function cardHTML(p, eager) {
     <div class="card-body">
       <p class="card-cat">${p.market ? `<span class="by-seller">${esc(p.sellerName)}</span>` : catName(p.category)}</p>
       <h3 class="card-name"><a href="${productHref(p, c0)}">${esc(p.name)}</a></h3>
-      <div class="card-price price">${priceHTML(p)}</div>${Reviews.starsHTML(p.id)}
-      ${p.soldOut ? "" : `<button class="quick-add btn-atc" type="button" data-qv aria-label="Choose a size and add ${esc(p.name)} to bag"><span class="atc-ico">${I.bag}</span><span class="atc-spin" aria-hidden="true"></span><span class="atc-ok">${I.check}</span><span class="atc-label">Add to Cart</span><span class="atc-done">Added</span></button>`}
+      <div class="card-price price">${priceHTML(p)}</div><div class="card-rating">${Reviews.starsHTML(p.id)}</div>
+      ${p.soldOut ? `<button class="quick-add btn-atc" type="button" disabled aria-label="${esc(p.name)} is sold out"><span class="atc-ico">${I.bag}</span><span class="atc-label">Sold out</span></button>` : `<button class="quick-add btn-atc" type="button" data-qv aria-label="Choose a size and add ${esc(p.name)} to bag"><span class="atc-ico">${I.bag}</span><span class="atc-spin" aria-hidden="true"></span><span class="atc-ok">${I.check}</span><span class="atc-label">Add to Cart</span><span class="atc-done">Added</span></button>`}
       <div class="card-foot"><div class="card-swatches" role="group" aria-label="Colours">${p.colors.map((c, i) => `<button type="button" class="csw" data-ci="${i}" style="--sw:${c.hex}" aria-label="${c.name}" aria-pressed="${i === c0}" title="${c.name}"></button>`).join("")}</div>
         <a class="card-details" href="${productHref(p, c0)}" aria-label="View details for ${esc(p.name)}">View details ›</a></div>
     </div></article>`;
@@ -2944,11 +2952,11 @@ VIEWS.home = v => {
   setMeta(null, "Shop URBANSTYLE FASHION: statement dresses, tailored suits, streetwear tees, kids' kits and accessories, designed in Redemption City.");
   // hero banners are real studio photos (photos/hero-*.jpg)
   const slides = [
-    { img: "photos/hero-collection.jpg", pos: "72% 45%", alt: "A woman in the chocolate tulle-trim wrap maxi dress, seated on the studio floor",
+    { img: "photos/hero-collection.jpg?v=2", pos: "72% 45%", alt: "A woman in the chocolate tulle-trim wrap maxi dress, seated on the studio floor",
       eyebrow: "The New Collection", title: "Made for the <em>moments</em> that matter.", text: "Statement dresses, sharp tailoring and everyday streetwear, designed in Redemption City and made in small runs.", cta: ["#shop", "Shop Now"], cta2: ["#shop-new-in", "New In"] },
-    { img: "photos/hero-women.jpg", pos: "82% 30%", alt: "The magenta ruched halter maxi dress and the blush embroidered organza shift dress",
+    { img: "photos/hero-women.jpg?v=3", pos: "82% 30%", alt: "The magenta ruched halter maxi dress and the blush embroidered organza shift dress",
       eyebrow: "Women", title: "Dresses that <em>turn heads.</em>", text: "Halter maxis, tulle-trimmed wraps, Ankara and embroidered organza for birthdays, church, weddings and every shoot.", cta: ["#shop-women", "Shop Women"], cta2: ["#product-p26", "The wrap dress"] },
-    { img: "photos/hero-men.jpg", pos: "82% 30%", alt: "The olive double-breasted suit and the crown graphic oversized tee",
+    { img: "photos/hero-men.jpg?v=3", pos: "82% 30%", alt: "The olive double-breasted suit and the crown graphic oversized tee",
       eyebrow: "Men", title: "From <em>sharp suits</em> to street tees.", text: "A double-breasted olive suit for the big days and heavyweight graphic tees for every other day.", cta: ["#shop-men", "Shop Men"], cta2: ["#product-p28", "The olive suit"] }
   ];
   const tiles = [["women", byId.p25, 0, "front"], ["men", byId.p28, 0, "front"], ["kids", byId.p29, 0, "front"], ["accessories", byId.p37, 0, "styled"], ["new-in", byId.p26, 0, "front"], ["sale", byId.p30, 0, "front"]];
@@ -3685,11 +3693,11 @@ VIEWS.order = v => {
 
 // The five founders (About page). Add each person's name and role here; the card shows "Co-founder" until a name is set.
 const TEAM = [
-  { photo: "photos/team-1.jpg", name: "", role: "Co-founder" },
-  { photo: "photos/team-2.jpg", name: "", role: "Co-founder" },
-  { photo: "photos/team-3.jpg", name: "", role: "Co-founder" },
-  { photo: "photos/team-4.jpg", name: "", role: "Co-founder" },
-  { photo: "photos/team-5.jpg", name: "", role: "Co-founder" }
+  { photo: "photos/team-1.jpg?v=2", name: "", role: "Co-founder" },
+  { photo: "photos/team-2.jpg?v=2", name: "", role: "Co-founder" },
+  { photo: "photos/team-3.jpg?v=2", name: "", role: "Co-founder" },
+  { photo: "photos/team-4.jpg?v=2", name: "", role: "Co-founder" },
+  { photo: "photos/team-5.jpg?v=2", name: "", role: "Co-founder" }
 ];
 VIEWS.about = v => {
   setMeta("About us", "URBANSTYLE started in 2026 as a RISE Training Program project by five people. Everyday streetwear that looks sharp on day one and better on day three hundred.");
