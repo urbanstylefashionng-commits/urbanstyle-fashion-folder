@@ -1281,6 +1281,20 @@ body.has-sticky .chat-fab{bottom:calc(env(safe-area-inset-bottom,0px) + 92px)}
 .sup-side{display:grid;justify-items:end;gap:4px;font-size:11px;color:var(--muted)}
 .sup-side em{font-style:normal;background:var(--lime);color:var(--ink);font-weight:800;min-width:20px;height:20px;border-radius:10px;display:grid;place-items:center;padding:0 5px}
 .sup-empty{padding:20px;color:var(--muted);font-size:14px}
+.sup-error{display:grid;gap:8px;justify-items:start;color:var(--ink)}
+.sup-back{display:none;align-items:center;gap:4px;border:0;background:none;font-weight:700;padding:6px 0;color:var(--ink)}
+.sup-back svg.i{width:18px;height:18px}
+.sup-hint{margin:0;padding:6px 14px 10px;font-size:12px;color:var(--muted);background:#fff}
+/* phones and tablets: show either the list or one conversation, never both stacked */
+@media (max-width:1023px){
+  .sup-back{display:inline-flex;flex-basis:100%}
+  .support-grid.is-thread .sup-list-wrap{display:none}
+  .sup-list{max-height:none}
+  .support-grid:not(.is-thread) .sup-thread{display:none}
+  .support-grid.is-thread .sup-thread{height:calc(100dvh - var(--header-h) - 12px);min-height:380px}
+  .support-grid.is-thread .sup-msgs{min-height:0}
+  .support-page:has(.is-thread) .page-head{display:none}
+}
 .sup-thread{display:flex;flex-direction:column;min-height:420px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--bg);overflow:hidden}
 .sup-thread>.empty{margin:auto;border:0}
 .sup-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid var(--line);background:var(--surface)}
@@ -4925,13 +4939,14 @@ const FireChat = {
   async exists(id) { const db = await this.db(); return (await db.collection("chats").doc(id).get()).exists; },
   async update(id, patch, incAdmin) { const db = await this.db(); const p = plain(patch); if (incAdmin) p.unreadForAdmin = firebase.firestore.FieldValue.increment(1); await db.collection("chats").doc(id).set(p, { merge: true }); },
   async add(id, m) { const db = await this.db(); await db.collection("chats").doc(id).collection("messages").add(plain(m)); },
-  _live(make, fn) {
+  _live(make, fn, onErr) {
     let unsub = () => {}, dead = false;
-    this.db().then(db => { if (!dead) unsub = make(db).onSnapshot(s => fn(s.docs.map(d => ({ id: d.id, ...d.data() }))), e => console.warn("[URBANSTYLE] Chat connection:", e.code || e)); }).catch(e => console.warn("[URBANSTYLE] Chat unavailable:", e.message));
+    this.db().then(db => { if (!dead) unsub = make(db).onSnapshot(s => fn(s.docs.map(d => ({ id: d.id, ...d.data() }))), e => { console.warn("[URBANSTYLE] Chat connection:", e.code || e); if (onErr) onErr(e); }); })
+      .catch(e => { console.warn("[URBANSTYLE] Chat unavailable:", e.message); if (onErr) onErr(e); });
     return () => { dead = true; unsub(); };
   },
-  watchMessages(id, fn) { return this._live(db => db.collection("chats").doc(id).collection("messages").orderBy("at"), fn); },
-  watchChats(fn) { return this._live(db => db.collection("chats").orderBy("updatedAt", "desc").limit(100), fn); }
+  watchMessages(id, fn, onErr) { return this._live(db => db.collection("chats").doc(id).collection("messages").orderBy("at"), fn, onErr); },
+  watchChats(fn, onErr) { return this._live(db => db.collection("chats").orderBy("updatedAt", "desc").limit(100), fn, onErr); }
 };
 const chatBe = () => authMode === "firebase" ? FireChat : LocalChat;
 
@@ -5070,7 +5085,8 @@ const Chat = {
       await chatBe().add(this.id, msg);
       if (m.from === "customer") {
         await chatBe().update(this.id, { lastMessage: m.text.slice(0, 140), updatedAt: msg.at, status: "open" }, true);
-        if (authMode === "firebase") brandedEmail("chat-new", { chatId: this.id }); // emails the team (at most every 30 minutes per chat)
+        // emails the team (the server allows one alert per chat every 30 minutes; this browser asks at most once a minute)
+        if (authMode === "firebase" && Date.now() - (this._alertAsked || 0) > 60000) { this._alertAsked = Date.now(); brandedEmail("chat-new", { chatId: this.id }); }
       }
     } catch (e) { console.warn(e); say("Message not sent. Check your connection."); }
   },
@@ -5099,16 +5115,54 @@ const Chat = {
   }
 };
 
+/* Team-only pages: explain what's missing and let the team fix it right here
+   (send the verification email, or refresh access after verifying). */
+function teamGate(v, u, what) {
+  const isTeamEmail = CFG.support.adminEmails.map(normEmail).includes(normEmail(u.email));
+  v.innerHTML = `<div class="wrap auth-page"><section class="auth-card action-card">
+    <div class="action-icon">${I.lock}</div>
+    <h1 class="auth-h">${isTeamEmail ? "One quick step" : "This page is for the URBANSTYLE team"}</h1>
+    <p class="auth-sub">${isTeamEmail
+      ? `To open ${what}, the store account (<b>${esc(u.email)}</b>) needs a verified email. Tap <b>Send verification email</b>, open the email (check Spam too), tap the button in it, then come back and tap <b>I've verified, continue</b>.`
+      : `You're signed in as <b>${esc(u.email)}</b>. Sign out and sign in with the store account to open ${what}.`}</p>
+    <div class="btn-pair">${isTeamEmail
+      ? `<button type="button" class="btn btn-lime" id="tg-send">Send verification email</button><button type="button" class="btn btn-ink" id="tg-check">I've verified, continue</button>`
+      : `<button type="button" class="btn btn-ink" id="tg-out">Sign out</button><a class="btn btn-ghost" href="#home">Back to the shop</a>`}</div>
+    <p class="muted small" id="tg-msg" role="status"></p></section></div>`;
+  const msg = t => { $("#tg-msg").innerHTML = t; };
+  const send = $("#tg-send"), check = $("#tg-check"), out = $("#tg-out");
+  if (send) send.addEventListener("click", async () => {
+    send.disabled = true; send.textContent = "Sending…";
+    try { await Auth.resendVerification(); send.textContent = "Email sent"; msg("Check the inbox (and Spam) for <b>Confirm your email</b>. The link works once."); }
+    catch (e) { send.disabled = false; send.textContent = "Send verification email"; msg("Couldn't send just now. Wait a minute and try again."); }
+  });
+  if (check) check.addEventListener("click", async () => {
+    check.disabled = true; check.textContent = "Checking…";
+    const ok = await refreshTeamAccess();
+    if (ok) { refreshAccountUI(); renderView(); return; }
+    check.disabled = false; check.textContent = "I've verified, continue";
+    msg("Not verified yet. Open the newest verification email and tap its button first, then try again.");
+  });
+  if (out) out.addEventListener("click", async () => { await Auth.signOut(); authNext = route.v === "admin" ? "admin" : "support"; go("login"); });
+}
+// Re-reads the signed-in account from Firebase and gets a fresh sign-in token, so a newly verified
+// email counts straight away (no need to sign out and back in). Returns true when team access is ready.
+async function refreshTeamAccess() {
+  if (authMode !== "firebase" || !fb.auth.currentUser) return isAdminUser();
+  try {
+    const fu = fb.auth.currentUser; await fu.reload(); await fu.getIdToken(true);
+    const me = Auth.current(); if (me) me.verified = !!fu.emailVerified;
+  } catch (e) { console.warn("[URBANSTYLE] Couldn't refresh the account:", e.code || e); }
+  return isAdminUser();
+}
+
 /* ---------- Support inbox (team only) ---------- */
 VIEWS.support = v => {
   if (authMode === "loading") return authLoading(v);
   const u = Auth.current();
   if (!u) { authNext = "support"; setTimeout(() => go("login", { replace: true })); return; }
   setMeta("Support inbox", "URBANSTYLE customer chat inbox.");
-  if (!isAdminUser()) {
-    v.innerHTML = `<div class="wrap not-found"><h1>This page is for the URBANSTYLE team.</h1><p>${CFG.support.adminEmails.map(normEmail).includes(normEmail(u.email)) ? "Verify your email address first (check your inbox for the verification link), then reload this page." : "Sign in with the support team's account to see customer chats."}</p><a class="btn btn-ink" href="#home">Back to the shop</a></div>`;
-    return;
-  }
+  if (!isAdminUser()) return teamGate(v, u, "the Support inbox");
   let chats = [], sel = null, filter = "open", unsubMsgs = null;
   v.innerHTML = `<div class="wrap support-page">
     <header class="page-head" style="padding-top:22px"><div><p class="eyebrow">Team only</p><h1>Support inbox</h1></div><p class="count" id="sup-count"></p></header>
@@ -5132,11 +5186,14 @@ VIEWS.support = v => {
     sel = id; drawList();
     const c = chats.find(x => x.id === id); if (!c) return;
     if (unsubMsgs) unsubMsgs();
-    $("#sup-thread").innerHTML = `<header class="sup-head"><div><b>${esc(c.name)}</b><small><a class="inline-link" href="mailto:${esc(c.email)}">${esc(c.email)}</a>${c.uid ? " · Signed-in customer" : " · Guest"} · started on ${esc(c.page || "#home")}</small></div>
+    $(".support-grid").classList.add("is-thread");
+    $("#sup-thread").innerHTML = `<header class="sup-head"><button type="button" class="sup-back" id="sup-back" aria-label="Back to all chats">${svgI('<path d="M15 6l-6 6 6 6"/>')}<span>All chats</span></button><div><b>${esc(c.name)}</b><small><a class="inline-link" href="mailto:${esc(c.email)}">${esc(c.email)}</a>${c.uid ? " · Signed-in customer" : " · Guest"} · started on ${esc(c.page || "#home")}</small></div>
         <button type="button" class="btn btn-ghost btn-sm" id="sup-resolve">${c.status === "open" ? `${I.check} Mark resolved` : "Reopen"}</button></header>
       <div class="sup-msgs" id="sup-msgs" role="log" aria-live="polite"></div>
       <div class="sup-canned">${CANNED.map((t, i) => `<button type="button" data-canned="${i}">${esc(t.length > 38 ? t.slice(0, 36) + "…" : t)}</button>`).join("")}</div>
-      <form class="chat-input sup-reply" id="sup-form"><label class="sr-only" for="sup-text">Reply to ${esc(c.name)}</label><textarea id="sup-text" rows="2" maxlength="1000" placeholder="Write a reply… (Enter to send, Shift+Enter for a new line)"></textarea><button type="submit" class="chat-send" aria-label="Send reply">${I.send}</button></form>`;
+      <form class="chat-input sup-reply" id="sup-form"><label class="sr-only" for="sup-text">Reply to ${esc(c.name)}</label><textarea id="sup-text" rows="2" maxlength="1000" placeholder="Write a reply…"></textarea><button type="submit" class="chat-send" id="sup-send" aria-label="Send reply">${I.send}</button></form>
+      <p class="sup-hint">The customer sees your reply in the chat straight away and also gets it by email.</p>`;
+    $("#sup-back").addEventListener("click", () => { sel = null; $(".support-grid").classList.remove("is-thread"); $("#sup-thread").style.height = ""; window.scrollTo({ top: 0 }); if (unsubMsgs) { unsubMsgs(); unsubMsgs = null; } drawList(); });
     unsubMsgs = chatBe().watchMessages(id, list => {
       const box = $("#sup-msgs"); if (!box) return;
       list.sort((a, b) => a.at.localeCompare(b.at));
@@ -5147,18 +5204,30 @@ VIEWS.support = v => {
     const ta = $("#sup-text");
     ta.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("#sup-form").requestSubmit(); } });
     $("#sup-form").addEventListener("submit", async e => {
-      e.preventDefault(); const text = ta.value.trim(); if (!text) return; ta.value = "";
+      e.preventDefault(); const text = ta.value.trim(); if (!text) return;
+      const sendBtn = $("#sup-send"); if (sendBtn.disabled) return;
+      sendBtn.disabled = true; ta.value = "";
       const at = new Date().toISOString();
+      const write = async () => { await chatBe().add(id, { from: "agent", name: `${u.first || "Team"} · URBANSTYLE`, text, at }); await chatBe().update(id, { lastMessage: "You: " + text.slice(0, 120), updatedAt: at, unreadForAdmin: 0 }); };
       try {
-        await chatBe().add(id, { from: "agent", name: `${u.first} · URBANSTYLE`, text, at }); await chatBe().update(id, { lastMessage: "You: " + text.slice(0, 120), updatedAt: at, unreadForAdmin: 0 });
+        // a refused write usually means an out-of-date sign-in token: refresh it once and try again
+        try { await write(); } catch (e1) { if (e1 && e1.code === "permission-denied" && await refreshTeamAccess()) await write(); else throw e1; }
         // also email the reply to the customer, with a link back to this conversation (the server spaces these out)
         if (authMode === "firebase" && fb.auth.currentUser) fb.auth.currentUser.getIdToken().then(t => brandedEmail("chat-reply", { chatId: id }, t)).catch(() => {});
       }
-      catch (err) { console.warn(err); say("Reply not sent. Check your connection."); ta.value = text; }
+      catch (err) {
+        console.warn(err); ta.value = text;
+        say(err && err.code === "permission-denied" ? "Reply not sent: your access needs refreshing. Go back to All chats and tap Refresh access." : "Reply not sent. Check your connection and try again.");
+      } finally { sendBtn.disabled = false; if (matchMedia("(min-width:1024px)").matches) ta.focus(); }
     });
     $(".sup-canned").addEventListener("click", e => { const b = e.target.closest("[data-canned]"); if (b) { ta.value = CANNED[+b.dataset.canned]; ta.focus(); } });
     $("#sup-resolve").addEventListener("click", async () => { const next = c.status === "open" ? "resolved" : "open"; await chatBe().update(id, { status: next, updatedAt: new Date().toISOString() }).catch(() => {}); c.status = next; say(next === "resolved" ? "Conversation resolved." : "Conversation reopened."); openThread(id); });
-    setTimeout(() => ta.focus(), 50);
+    if (matchMedia("(min-width:1024px)").matches) setTimeout(() => ta.focus(), 50);
+    else { // phones: fit the conversation exactly between the sticky header and the bottom of the screen
+      const th = $("#sup-thread"), hdr = $("#site-header"), top = hdr ? hdr.getBoundingClientRect().height : 64;
+      th.style.height = (window.innerHeight - top - 12) + "px";
+      window.scrollTo({ top: th.getBoundingClientRect().top + window.scrollY - top - 6 });
+    }
   };
   v.querySelector(".tabs").addEventListener("click", e => { const b = e.target.closest("[data-f]"); if (!b) return; filter = b.dataset.f; $$(".support-page .tabs [data-f]").forEach(x => x.setAttribute("aria-selected", x === b)); drawList(); });
   $("#sup-list").addEventListener("click", e => { const b = e.target.closest("[data-id]"); if (b) openThread(b.dataset.id); });
@@ -5172,6 +5241,15 @@ VIEWS.support = v => {
   const drawNotifyBtn = () => { const p = "Notification" in window ? Notification.permission : "unsupported"; notifyBtn.hidden = p === "unsupported" || p === "granted"; notifyBtn.textContent = p === "denied" ? "Alerts blocked in browser settings" : "Turn on message alerts"; notifyBtn.disabled = p === "denied"; };
   notifyBtn.addEventListener("click", async () => { try { await Notification.requestPermission(); } catch (e) {} drawNotifyBtn(); });
   drawNotifyBtn(); $(".support-page .page-head").append(notifyBtn);
+  // if Firebase refuses the list (usually a sign-in token from before the email was verified),
+  // refresh access once automatically; if it still fails, say so clearly instead of showing an empty inbox
+  let retried = false;
+  const onListError = async e => {
+    if (!retried && e && e.code === "permission-denied") { retried = true; if (await refreshTeamAccess()) { renderView(); return; } }
+    const box = $("#sup-list"); if (!box) return;
+    box.innerHTML = `<li class="sup-empty sup-error"><b>Couldn't load conversations.</b><span>${e && e.code === "permission-denied" ? "Your access needs refreshing." : "Check your internet connection."}</span><button type="button" class="btn btn-ink btn-sm" id="sup-refresh">Refresh access</button></li>`;
+    $("#sup-refresh").addEventListener("click", async ev => { ev.target.disabled = true; ev.target.textContent = "Refreshing…"; await refreshTeamAccess(); renderView(); });
+  };
   const unsubChats = chatBe().watchChats(list => {
     chats = list; drawList();
     const unread = chats.reduce((n, c) => n + (c.unreadForAdmin || 0), 0);
@@ -5185,7 +5263,7 @@ VIEWS.support = v => {
     }
     if (firstLoad && route.id && chats.some(c => c.id === route.id)) openThread(route.id); // deep link from the alert email
     lastUnread = unread; firstLoad = false;
-  });
+  }, onListError);
   VIEWS._cleanup = () => { unsubChats(); if (unsubMsgs) unsubMsgs(); document.title = baseTitle; };
 };
 
@@ -5430,7 +5508,7 @@ VIEWS.admin = async v => {
   const u = Auth.current();
   if (!u) { authNext = "admin"; setTimeout(() => go("login", { replace: true })); return; }
   setMeta("Team dashboard", "URBANSTYLE store operations.");
-  if (!isAdminUser()) { v.innerHTML = `<div class="wrap not-found"><h1>This page is for the URBANSTYLE team.</h1><p>Sign in with the team account (and verify its email) to manage the store.</p><a class="btn btn-ink" href="#home">Back to the shop</a></div>`; return; }
+  if (!isAdminUser()) return teamGate(v, u, "the Team dashboard");
   v.innerHTML = `<div class="wrap auth-page"><div class="auth-loading" role="status"><span class="spinner" aria-hidden="true"></span>Loading the dashboard…</div></div>`;
   const load = c => DB().all(c).catch(e => { console.warn(`[URBANSTYLE] ${c}:`, e.code || e.message); return []; });
   const [orders, returns, messages, subs, alerts, reviews] = await Promise.all(["orders", "returns", "messages", "subscribers", "stockAlerts", "reviews"].map(load));
