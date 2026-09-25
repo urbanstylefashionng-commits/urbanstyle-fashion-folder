@@ -195,7 +195,6 @@ body.has-sticky .toast{bottom:calc(env(safe-area-inset-bottom,0px) + 86px)}
 @media (min-width:1024px){.grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:40px 24px}}
 /* beside the filters there's less room: three columns until the screen is wide enough for four */
 @media (min-width:1024px) and (max-width:1279px){.shop-layout .grid:not(.is-large){grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media (max-width:767px){.card-name{font-size:14px}}
 .card{position:relative;display:flex;flex-direction:column;min-width:0}
 .card-media{position:relative;display:block;aspect-ratio:4/5;max-width:100%;border-radius:var(--r-md);overflow:hidden;background:var(--stone);transition:box-shadow .25s var(--ease),transform .15s var(--ease)}
 .card-media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity .35s var(--ease),transform .6s var(--ease)}
@@ -212,6 +211,8 @@ body.has-sticky .toast{bottom:calc(env(safe-area-inset-bottom,0px) + 86px)}
 /* names show in full over up to two lines; the space for two lines is always kept so cards line up */
 .card-name{grid-area:name;font:700 15px/1.3 var(--font-body);letter-spacing:0;margin-top:2px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;min-height:2.6em}
 .card-rating{grid-area:rating;min-height:18px;display:flex;align-items:center}
+@media (max-width:767px){.card-name{font-size:14px}}
+@media (max-width:400px){.card-name{font-size:13px;letter-spacing:-.01em}.card-cat{font-size:10.5px}}
 .card-name a{text-decoration:none}
 .card-name a::after{content:"";position:absolute;inset:0 0 auto 0;aspect-ratio:4/5;z-index:1}
 .card-price{grid-area:price;min-height:28px;margin-top:4px;font-size:15px;display:flex;align-items:center;flex-wrap:wrap;gap:0 6px}
@@ -1065,7 +1066,7 @@ body.has-sticky{padding-bottom:84px}
 .hero-slide::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(20,20,20,.94) 22%,rgba(20,20,20,.45) 58%,rgba(20,20,20,0) 85%);z-index:1}
 .hero-slide.on .hero-img{animation:kenburns 9s var(--ease) both}
 @keyframes kenburns{from{transform:scale(1.06)}to{transform:scale(1)}}
-.hero-slide .hero-copy{z-index:2;padding-bottom:64px}
+.hero-slide .hero-copy{z-index:2;padding-bottom:72px}
 .hero-copy .h1{font-size:clamp(36px,10vw,96px);font-weight:800;line-height:.92;letter-spacing:-.035em}
 .hero-copy .h1 em{font-style:normal;color:var(--ink);background:var(--lime);padding:0 .12em;border-radius:.14em}
 .btn-ghost.on-dark{color:#fff}
@@ -1086,10 +1087,12 @@ body.has-sticky{padding-bottom:84px}
 @media (min-width:768px){
   .hero-slide{align-items:center}
   .hero-slide::after{background:linear-gradient(90deg,rgba(20,20,20,.94) 18%,rgba(20,20,20,.6) 46%,rgba(20,20,20,0) 72%)}
-  .hero-slide .hero-copy{padding-bottom:48px}
-  .hero-ctrl{left:44px;right:auto;bottom:22px}
+  .hero-slide .hero-copy{padding-top:40px;padding-bottom:40px;max-width:600px}
+  /* slide controls sit bottom-right, over the photos, so they never collide with the headline or buttons */
+  .hero-ctrl{left:auto;right:24px;bottom:20px;padding:4px 6px;border-radius:999px;background:rgba(20,20,20,.35);backdrop-filter:blur(6px)}
+  .hero-dots{width:150px;flex:none}
+  .hero-copy h1,.hero-copy .h1{font-size:clamp(44px,6.6vw,84px)}
 }
-@media (min-width:1024px){.hero-ctrl{left:64px}}
 /* product page: desktop sticky bar */
 @media (min-width:768px){
   body.sticky-desktop .sticky-atc{display:flex;animation:slideUp .25s var(--ease)}
@@ -1281,6 +1284,20 @@ body.has-sticky .chat-fab{bottom:calc(env(safe-area-inset-bottom,0px) + 92px)}
 .sup-side{display:grid;justify-items:end;gap:4px;font-size:11px;color:var(--muted)}
 .sup-side em{font-style:normal;background:var(--lime);color:var(--ink);font-weight:800;min-width:20px;height:20px;border-radius:10px;display:grid;place-items:center;padding:0 5px}
 .sup-empty{padding:20px;color:var(--muted);font-size:14px}
+.sup-error{display:grid;gap:8px;justify-items:start;color:var(--ink)}
+.sup-back{display:none;align-items:center;gap:4px;border:0;background:none;font-weight:700;padding:6px 0;color:var(--ink)}
+.sup-back svg.i{width:18px;height:18px}
+.sup-hint{margin:0;padding:6px 14px 10px;font-size:12px;color:var(--muted);background:#fff}
+/* phones and tablets: show either the list or one conversation, never both stacked */
+@media (max-width:1023px){
+  .sup-back{display:inline-flex;flex-basis:100%}
+  .support-grid.is-thread .sup-list-wrap{display:none}
+  .sup-list{max-height:none}
+  .support-grid:not(.is-thread) .sup-thread{display:none}
+  .support-grid.is-thread .sup-thread{height:calc(100dvh - var(--header-h) - 12px);min-height:380px}
+  .support-grid.is-thread .sup-msgs{min-height:0}
+  .support-page:has(.is-thread) .page-head{display:none}
+}
 .sup-thread{display:flex;flex-direction:column;min-height:420px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--bg);overflow:hidden}
 .sup-thread>.empty{margin:auto;border:0}
 .sup-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid var(--line);background:var(--surface)}
@@ -1459,7 +1476,7 @@ const CFG = {
   // Online payments (Paystack). Paste your PUBLIC key here: pk_test_… while testing, pk_live_… when live.
   // The SECRET key never goes in this file: add it in Vercel → Settings → Environment Variables as PAYSTACK_SECRET_KEY.
   paystack: { publicKey: "", verifyEndpoint: "/api/verify-payment" },
-  featured: ["p25", "p28", "p26", "p33", "p32", "p01", "p31", "p29"],
+  featured: ["p25", "p28", "p26", "p33", "p34", "p35", "p45", "p42"],
   pageSize: 12
 };
 const CATS = [
@@ -2205,6 +2222,7 @@ async function brandedEmail(action, payload = {}, idToken) {
   try {
     const r = await fetch("/api/send-email", { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, idToken ? { Authorization: "Bearer " + idToken } : {}), body: JSON.stringify(Object.assign({ action }, payload)) });
     const j = await r.json().catch(() => ({}));
+    if (!r.ok && r.status !== 429) console.warn(`[URBANSTYLE] Email "${action}" not sent:`, r.status, j.error || "", j.detail || "");
     return r.ok && j.ok === true || r.status === 429; // 429 = one was sent less than a minute ago
   } catch (e) { return false; }
 }
@@ -2461,7 +2479,7 @@ function renderShell() {
     <div class="mega" id="mega" hidden><div class="wrap mega-inner">
       ${["women", "men", "kids", "accessories"].map(c => `<div class="mega-col"><h3><a href="#shop-${c}">${catName(c)}</a></h3><ul>${PRODUCTS.filter(p => p.category === c).slice(0, 6).map(p => `<li><a href="#product-${p.id}">${esc(p.name)}</a></li>`).join("")}</ul><a class="mega-all" href="#shop-${c}">Shop all ${catName(c).toLowerCase()} ›</a></div>`).join("")}
       <div class="mega-col"><h3>Discover</h3><ul><li><a href="#shop-new-in">New In</a></li><li><a href="#shop-sale">Sale</a></li><li><a href="#journal">The Journal</a></li><li><a href="#help-sizes">Size guide</a></li><li><a href="#wishlist">Wishlist</a></li></ul></div>
-      <a class="mega-promo" href="#shop-new-in"><img src="${img(byId.p26)}" alt="" loading="lazy" style="object-position:top"><span><small>Monthly drop</small><b>New this month</b></span></a>
+      <a class="mega-promo" href="#shop-new-in"><img src="${img(byId.p26, 0, "m2")}" alt="" loading="lazy"><span><small>Monthly drop</small><b>New this month</b></span></a>
     </div></div></header>
   <div class="scrim" id="scrim" hidden></div>
   <nav class="mobile-nav panel" id="mobile-nav" aria-label="Mobile" hidden>
@@ -2756,14 +2774,17 @@ function toggleWish(id) {
   return on;
 }
 const productHref = (p, ci) => `#product-${p.id}${ci ? "-c" + ci : ""}`;
-function cardHTML(p, eager) {
+function cardHTML(p, eager, avoid) {
+  // `avoid`: pictures already shown elsewhere on the page. The hover picture then switches to a close-up
+  // (or is left out), so the same photo never shows twice.
+  const altFor = (ci, main) => { const opts = [img(p, ci, "styled"), img(p, ci, "detail")].filter(s => s !== main); const pick = avoid ? opts.find(s => !avoid.has(s)) : opts[0]; if (avoid && pick) avoid.add(pick); return pick || main; };
   const badge = p.soldOut ? `<span class="badge badge-ink">Sold Out</span>` : p.salePrice ? `<span class="badge badge-lime">Sale −${pctOff(p)}%</span>` : p.isNew ? `<span class="badge badge-light">New</span>` : p.low.length ? `<span class="badge badge-light">Low Stock</span>` : "";
   const c0 = Math.max(0, p.colors.findIndex(c => p.sizes.some(s => stockOf(p, c.name, s) > 0)));
   return `<article class="card${p.soldOut ? " is-soldout" : ""}" data-id="${p.id}" data-ci="${c0}">
     <div class="card-media-wrap">
       <a class="card-media" href="${productHref(p, c0)}" tabindex="-1" aria-hidden="true">
         <img class="img-main" src="${img(p, c0)}" alt="${esc(p.name)} in ${esc(p.colors[c0].name)}" width="400" height="500"${eager ? "" : ' loading="lazy"'}>
-        <img class="img-alt" src="${img(p, c0, "styled")}" alt="" width="400" height="500" loading="lazy">${badge}</a>
+        <img class="img-alt" src="${altFor(c0, img(p, c0))}" alt="" width="400" height="500" loading="lazy">${badge}</a>
       ${p.soldOut ? "" : `<div class="card-hover"><button type="button" class="qv-btn" data-qv aria-label="Quick view ${esc(p.name)}">Quick view</button>
         <div class="hover-sizes" aria-label="Quick add a size"><span>Add size</span><div class="hs-row"></div></div></div>`}
     </div>
@@ -2996,12 +3017,30 @@ VIEWS.home = v => {
   const slides = [
     { img: "photos/hero-collection.jpg?v=2", pos: "72% 45%", alt: "A woman in the chocolate tulle-trim wrap maxi dress, seated on the studio floor",
       eyebrow: "The New Collection", title: "Made for the <em>moments</em> that matter.", text: "Statement dresses, sharp tailoring and everyday streetwear, designed in Redemption City and made in small runs.", cta: ["#shop", "Shop Now"], cta2: ["#shop-new-in", "New In"] },
-    { img: "photos/hero-women.jpg?v=3", pos: "82% 30%", alt: "The magenta ruched halter maxi dress and the blush embroidered organza shift dress",
+    { img: "photos/hero-women.jpg?v=4", pos: "82% 30%", alt: "The magenta ruched halter maxi dress and the abstract line-print maxi dress",
       eyebrow: "Women", title: "Dresses that <em>turn heads.</em>", text: "Halter maxis, tulle-trimmed wraps, Ankara and embroidered organza for birthdays, church, weddings and every shoot.", cta: ["#shop-women", "Shop Women"], cta2: ["#product-p26", "The wrap dress"] },
-    { img: "photos/hero-men.jpg?v=3", pos: "82% 30%", alt: "The olive double-breasted suit and the crown graphic oversized tee",
-      eyebrow: "Men", title: "From <em>sharp suits</em> to street tees.", text: "A double-breasted olive suit for the big days and heavyweight graphic tees for every other day.", cta: ["#shop-men", "Shop Men"], cta2: ["#product-p28", "The olive suit"] }
+    { img: "photos/hero-men.jpg?v=4", pos: "82% 30%", alt: "The olive double-breasted suit and the essential white crew tee",
+      eyebrow: "Men", title: "From <em>sharp suits</em> to everyday tees.", text: "A double-breasted olive suit for the big days and clean, heavyweight tees for every other day.", cta: ["#shop-men", "Shop Men"], cta2: ["#product-p28", "The olive suit"] }
   ];
-  const tiles = [["women", byId.p25, 0, "front"], ["men", byId.p28, 0, "front"], ["kids", byId.p29, 0, "front"], ["accessories", byId.p37, 0, "styled"], ["new-in", byId.p26, 0, "front"], ["sale", byId.p30, 0, "front"]];
+  /* Every picture on the home page appears once. `used` collects each image as a section claims it;
+     the banners are built from these product photos, so those count as used too. */
+  const used = new Set([img(byId.p26, 0, "m1"), img(byId.p25, 0, "m1"), img(byId.p31), img(byId.p28, 0, "m2"), img(byId.p27, 0, "m1")]);
+  const claim = src => { used.add(src); return src; };
+  const tiles = [["women", byId.p32, 0, "m0"], ["men", byId.p28, 0, "m3"], ["kids", byId.p29, 0, "m1"], ["accessories", byId.p37, 0, "m0"], ["new-in", byId.p36, 0, "m0"], ["sale", byId.p30, 0, "m0"]];
+  tiles.forEach(([, p, c, view]) => claim(img(p, c, view)));
+  const featured = CFG.featured.map(id => byId[id]).filter(Boolean);
+  featured.forEach(p => claim(img(p, 0)));
+  const promos = [["#shop-women", byId.p40, 0, "m0", "Women", "Maxis, wraps and Ankara.", "Shop Women"], ["#shop-men", byId.p27, 0, "m0", "Men", "Tailoring and everyday tees.", "Shop Men"]];
+  const gram = [["p28", 0, "m1"], ["p29", 0, "m0"], ["p37", 0, "m1"], ["p43", 0, "m0"], ["p44", 0, "m0"], ["p45", 1, "m0"]];
+  promos.forEach(([, p, c, view]) => claim(img(p, c, view)));
+  gram.forEach(([id, c, view]) => claim(img(byId[id], c, view)));
+  claim(img(byId.p01, 0, "styled")); STL_ITEMS.forEach(([id, ci]) => claim(img(byId[id], ci)));
+  [["p01", 0], ["p11", 0], ["p16", 1]].forEach(([id, ci]) => claim(img(byId[id], ci, "detail")));
+  JOURNAL.forEach(a => claim(img(byId[a.hero[0]], a.hero[1], "styled")));
+  // personal rows skip anything already on the page
+  const fresh = p => p && !used.has(img(p, 0)) && !CFG.featured.includes(p.id);
+  const recentList = store.get("recent", []).map(id => byId[id]).filter(fresh).slice(0, 4);
+  recentList.forEach(p => claim(img(p, 0)));
   v.innerHTML = `
   <section class="hero wrap" aria-roledescription="carousel" aria-label="Featured collections"><div class="hero-card" id="hero">
     ${slides.map((s, i) => `<div class="hero-slide${i ? "" : " on"}" role="group" aria-roledescription="slide" aria-label="${i + 1} of ${slides.length}"${i ? ' aria-hidden="true" inert' : ""}>
@@ -3018,8 +3057,8 @@ VIEWS.home = v => {
       <span class="tile-label">${catName(s)} ${I.arrow}</span></a>`).join("")}</div></section>
   <section class="featured section wrap" aria-labelledby="featured-title">
     <div class="section-head"><h2 id="featured-title">Featured</h2><a class="link-arrow" href="#shop"><span>View All</span>${I.arrow}</a></div>
-    <div class="featured-row" id="featured-row">${CFG.featured.map((id, i) => cardHTML(byId[id], i < 3)).join("")}</div></section>
-  ${(() => { const rv = store.get("recent", []).filter(id => byId[id]).slice(0, 4); return rv.length ? `<section class="section wrap" aria-labelledby="rv-title" style="padding-top:0"><div class="section-head"><h2 id="rv-title">Recently viewed</h2><a class="link-arrow" href="#shop"><span>Keep shopping</span>${I.arrow}</a></div><div class="grid" id="recent-home">${rv.map(id => cardHTML(byId[id])).join("")}</div></section>` : ""; })()}
+    <div class="featured-row" id="featured-row">${featured.map((p, i) => cardHTML(p, i < 3, used)).join("")}</div></section>
+  ${recentList.length ? `<section class="section wrap" aria-labelledby="rv-title" style="padding-top:0"><div class="section-head"><h2 id="rv-title">Recently viewed</h2><a class="link-arrow" href="#shop"><span>Keep shopping</span>${I.arrow}</a></div><div class="grid" id="recent-home">${recentList.map(p => cardHTML(p, false, used)).join("")}</div></section>` : ""}
   <section class="section wrap" aria-labelledby="edit-title" style="padding-top:0">
     <div class="section-head"><h2 id="edit-title">The edit</h2>
       <div class="tabs" role="tablist" aria-label="Product lists"><button type="button" role="tab" id="tab-new" aria-selected="true" aria-controls="edit-grid" data-tab="new">New in</button><button type="button" role="tab" id="tab-picks" aria-selected="false" aria-controls="edit-grid" data-tab="picks">Staff picks</button><button type="button" role="tab" id="tab-sale" aria-selected="false" aria-controls="edit-grid" data-tab="sale">On sale</button></div></div>
@@ -3034,8 +3073,7 @@ VIEWS.home = v => {
       <button type="button" class="btn btn-lime btn-block" id="buy-look">${I.bag} Add the whole look to bag</button>
       <p class="muted small">We'll add each piece in your most popular size. You can change sizes in your bag.</p></div></div></section>
   <section class="section wrap" aria-label="Collections" style="padding-top:0"><div class="promo-split">
-    <a class="promo" href="#shop-women"><img src="${img(byId.p31)}" alt="" loading="lazy"><div class="promo-txt"><p class="eyebrow on-dark">Women</p><h3>Maxis, wraps and Ankara.</h3><span class="btn btn-lime">Shop Women ${I.arrow}</span></div></a>
-    <a class="promo" href="#shop-men"><img src="${img(byId.p28, 0, "m3")}" alt="" loading="lazy"><div class="promo-txt"><p class="eyebrow on-dark">Men</p><h3>Tailoring and street tees.</h3><span class="btn btn-lime">Shop Men ${I.arrow}</span></div></a>
+    ${promos.map(([href, p, c, view, eb, h, cta]) => `<a class="promo" href="${href}"><img src="${img(p, c, view)}" alt="" loading="lazy"><div class="promo-txt"><p class="eyebrow on-dark">${eb}</p><h3>${h}</h3><span class="btn btn-lime">${cta} ${I.arrow}</span></div></a>`).join("")}
   </div></section>
   <section class="section wrap" aria-labelledby="craft-title" style="padding-top:0">
     <div class="section-head"><div><p class="eyebrow">The craft</p><h2 id="craft-title" style="margin-top:10px">Made to outlast the trend.</h2></div><a class="link-arrow" href="#about"><span>Our story</span>${I.arrow}</a></div>
@@ -3049,7 +3087,7 @@ VIEWS.home = v => {
     <div class="journal-grid">${JOURNAL.map(journalCard).join("")}</div></section>
   <section class="section wrap" aria-labelledby="gram-title" style="padding-top:0">
     <div class="section-head"><div><p class="eyebrow">#WearUrbanstyle</p><h2 id="gram-title" style="margin-top:10px">Styled by the studio</h2></div><a class="link-arrow" href="https://www.instagram.com/urbanstylefashionng/" target="_blank" rel="noopener"><span>Follow @urbanstylefashionng</span>${I.arrow}</a></div>
-    <div class="gram-grid">${[["p25", 0, "m1"], ["p33", 0, "m0"], ["p32", 0, "m0"], ["p29", 0, "m1"], ["p30", 0, "m0"], ["p45", 0, "m1"]].map(([id, ci, view]) => `<a class="gram" href="#product-${id}" aria-label="Shop ${esc(byId[id].name)}"><img src="${img(byId[id], ci, view)}" alt="" loading="lazy"><span>${I.bag} Shop</span></a>`).join("")}</div>
+    <div class="gram-grid">${gram.map(([id, ci, view]) => `<a class="gram" href="#product-${id}" aria-label="Shop ${esc(byId[id].name)}"><img src="${img(byId[id], ci, view)}" alt="" loading="lazy"><span>${I.bag} Shop</span></a>`).join("")}</div>
     <div class="follow-row"><p class="muted small">Tag <a class="inline-link" href="https://www.instagram.com/urbanstylefashionng/" target="_blank" rel="noopener">@urbanstylefashionng</a> on Instagram or TikTok for a chance to be featured.</p>${socialHTML()}</div></section>
   <section class="wrap section" aria-labelledby="home-story-title" style="padding-top:0"><div class="home-story">
     <div><p class="eyebrow">Our story</p><h2 id="home-story-title">Five people, one project, and the idea that stuck.</h2></div>
@@ -3063,11 +3101,12 @@ VIEWS.home = v => {
   wireCards($("#featured-row"));
   if ($("#recent-home")) wireCards($("#recent-home"));
   wireHero(slides.length);
-  const lists = { new: PRODUCTS.filter(p => p.isNew), picks: ["p02", "p11", "p21", "p15"].map(id => byId[id]), sale: PRODUCTS.filter(p => p.salePrice) };
+  // "The edit" only shows pieces that aren't already pictured elsewhere on the page
+  const lists = { new: PRODUCTS.filter(p => p.isNew && fresh(p)), picks: ["p02", "p11", "p21", "p15", "p39", "p38"].map(id => byId[id]).filter(fresh), sale: PRODUCTS.filter(p => p.salePrice && fresh(p)) };
   const drawEdit = k => {
     $$(".tabs [role=tab]").forEach(t => t.setAttribute("aria-selected", t.dataset.tab === k));
     $("#edit-grid").setAttribute("aria-labelledby", "tab-" + k);
-    $("#edit-grid").innerHTML = lists[k].slice(0, 4).map(p => cardHTML(p)).join("");
+    $("#edit-grid").innerHTML = lists[k].slice(0, 4).map(p => cardHTML(p, false, used)).join("");
   };
   $(".tabs").addEventListener("click", e => { const t = e.target.closest("[role=tab]"); if (t) drawEdit(t.dataset.tab); });
   $(".tabs").addEventListener("keydown", e => {
@@ -3905,7 +3944,14 @@ const authNote = () => `<p class="auth-note">${I.lock}<span>${authMode === "fire
   : AUTH_CFG.provider === "firebase" ? "Preview mode: online accounts switch on when the store is opened from its web address. Accounts made here are saved on this device only."
   : "Passwords are stored securely hashed. Accounts are saved on this device."}</span></p>`;
 // While Firebase starts up, account pages show a short loading state instead of redirecting.
-const authLoading = v => { v.innerHTML = `<div class="wrap auth-page"><div class="auth-loading" role="status"><span class="spinner" aria-hidden="true"></span>Loading your account…</div></div>`; return true; };
+// Shown while sign-in is still starting up. Whichever page showed it is drawn again as soon as sign-in is
+// ready (as long as the visitor is still on that page), so no page can get stuck on this message.
+const authLoading = v => {
+  v.innerHTML = `<div class="wrap auth-page"><div class="auth-loading" role="status"><span class="spinner" aria-hidden="true"></span>Loading your account…</div></div>`;
+  const waitingOn = currentHash;
+  authReady.then(() => { if (currentHash === waitingOn && authMode !== "loading") renderView(); });
+  return true;
+};
 function authErrMsg(m, action) {
   if (m.startsWith("locked:")) return `Too many attempts. Wait ${m.split(":")[1]} seconds, then try again.`;
   return ({
@@ -4924,13 +4970,14 @@ const FireChat = {
   async exists(id) { const db = await this.db(); return (await db.collection("chats").doc(id).get()).exists; },
   async update(id, patch, incAdmin) { const db = await this.db(); const p = plain(patch); if (incAdmin) p.unreadForAdmin = firebase.firestore.FieldValue.increment(1); await db.collection("chats").doc(id).set(p, { merge: true }); },
   async add(id, m) { const db = await this.db(); await db.collection("chats").doc(id).collection("messages").add(plain(m)); },
-  _live(make, fn) {
+  _live(make, fn, onErr) {
     let unsub = () => {}, dead = false;
-    this.db().then(db => { if (!dead) unsub = make(db).onSnapshot(s => fn(s.docs.map(d => ({ id: d.id, ...d.data() }))), e => console.warn("[URBANSTYLE] Chat connection:", e.code || e)); }).catch(e => console.warn("[URBANSTYLE] Chat unavailable:", e.message));
+    this.db().then(db => { if (!dead) unsub = make(db).onSnapshot(s => fn(s.docs.map(d => ({ id: d.id, ...d.data() }))), e => { console.warn("[URBANSTYLE] Chat connection:", e.code || e); if (onErr) onErr(e); }); })
+      .catch(e => { console.warn("[URBANSTYLE] Chat unavailable:", e.message); if (onErr) onErr(e); });
     return () => { dead = true; unsub(); };
   },
-  watchMessages(id, fn) { return this._live(db => db.collection("chats").doc(id).collection("messages").orderBy("at"), fn); },
-  watchChats(fn) { return this._live(db => db.collection("chats").orderBy("updatedAt", "desc").limit(100), fn); }
+  watchMessages(id, fn, onErr) { return this._live(db => db.collection("chats").doc(id).collection("messages").orderBy("at"), fn, onErr); },
+  watchChats(fn, onErr) { return this._live(db => db.collection("chats").orderBy("updatedAt", "desc").limit(100), fn, onErr); }
 };
 const chatBe = () => authMode === "firebase" ? FireChat : LocalChat;
 
@@ -5069,7 +5116,8 @@ const Chat = {
       await chatBe().add(this.id, msg);
       if (m.from === "customer") {
         await chatBe().update(this.id, { lastMessage: m.text.slice(0, 140), updatedAt: msg.at, status: "open" }, true);
-        if (authMode === "firebase") brandedEmail("chat-new", { chatId: this.id }); // emails the team (at most every 30 minutes per chat)
+        // emails the team (the server allows one alert per chat every 30 minutes; this browser asks at most once a minute)
+        if (authMode === "firebase" && Date.now() - (this._alertAsked || 0) > 60000) { this._alertAsked = Date.now(); brandedEmail("chat-new", { chatId: this.id }); }
       }
     } catch (e) { console.warn(e); say("Message not sent. Check your connection."); }
   },
@@ -5098,16 +5146,54 @@ const Chat = {
   }
 };
 
+/* Team-only pages: explain what's missing and let the team fix it right here
+   (send the verification email, or refresh access after verifying). */
+function teamGate(v, u, what) {
+  const isTeamEmail = CFG.support.adminEmails.map(normEmail).includes(normEmail(u.email));
+  v.innerHTML = `<div class="wrap auth-page"><section class="auth-card action-card">
+    <div class="action-icon">${I.lock}</div>
+    <h1 class="auth-h">${isTeamEmail ? "One quick step" : "This page is for the URBANSTYLE team"}</h1>
+    <p class="auth-sub">${isTeamEmail
+      ? `To open ${what}, the store account (<b>${esc(u.email)}</b>) needs a verified email. Tap <b>Send verification email</b>, open the email (check Spam too), tap the button in it, then come back and tap <b>I've verified, continue</b>.`
+      : `You're signed in as <b>${esc(u.email)}</b>. Sign out and sign in with the store account to open ${what}.`}</p>
+    <div class="btn-pair">${isTeamEmail
+      ? `<button type="button" class="btn btn-lime" id="tg-send">Send verification email</button><button type="button" class="btn btn-ink" id="tg-check">I've verified, continue</button>`
+      : `<button type="button" class="btn btn-ink" id="tg-out">Sign out</button><a class="btn btn-ghost" href="#home">Back to the shop</a>`}</div>
+    <p class="muted small" id="tg-msg" role="status"></p></section></div>`;
+  const msg = t => { $("#tg-msg").innerHTML = t; };
+  const send = $("#tg-send"), check = $("#tg-check"), out = $("#tg-out");
+  if (send) send.addEventListener("click", async () => {
+    send.disabled = true; send.textContent = "Sending…";
+    try { await Auth.resendVerification(); send.textContent = "Email sent"; msg("Check the inbox (and Spam) for <b>Confirm your email</b>. The link works once."); }
+    catch (e) { send.disabled = false; send.textContent = "Send verification email"; msg("Couldn't send just now. Wait a minute and try again."); }
+  });
+  if (check) check.addEventListener("click", async () => {
+    check.disabled = true; check.textContent = "Checking…";
+    const ok = await refreshTeamAccess();
+    if (ok) { refreshAccountUI(); renderView(); return; }
+    check.disabled = false; check.textContent = "I've verified, continue";
+    msg("Not verified yet. Open the newest verification email and tap its button first, then try again.");
+  });
+  if (out) out.addEventListener("click", async () => { await Auth.signOut(); authNext = route.v === "admin" ? "admin" : "support"; go("login"); });
+}
+// Re-reads the signed-in account from Firebase and gets a fresh sign-in token, so a newly verified
+// email counts straight away (no need to sign out and back in). Returns true when team access is ready.
+async function refreshTeamAccess() {
+  if (authMode !== "firebase" || !fb.auth.currentUser) return isAdminUser();
+  try {
+    const fu = fb.auth.currentUser; await fu.reload(); await fu.getIdToken(true);
+    const me = Auth.current(); if (me) me.verified = !!fu.emailVerified;
+  } catch (e) { console.warn("[URBANSTYLE] Couldn't refresh the account:", e.code || e); }
+  return isAdminUser();
+}
+
 /* ---------- Support inbox (team only) ---------- */
 VIEWS.support = v => {
   if (authMode === "loading") return authLoading(v);
   const u = Auth.current();
   if (!u) { authNext = "support"; setTimeout(() => go("login", { replace: true })); return; }
   setMeta("Support inbox", "URBANSTYLE customer chat inbox.");
-  if (!isAdminUser()) {
-    v.innerHTML = `<div class="wrap not-found"><h1>This page is for the URBANSTYLE team.</h1><p>${CFG.support.adminEmails.map(normEmail).includes(normEmail(u.email)) ? "Verify your email address first (check your inbox for the verification link), then reload this page." : "Sign in with the support team's account to see customer chats."}</p><a class="btn btn-ink" href="#home">Back to the shop</a></div>`;
-    return;
-  }
+  if (!isAdminUser()) return teamGate(v, u, "the Support inbox");
   let chats = [], sel = null, filter = "open", unsubMsgs = null;
   v.innerHTML = `<div class="wrap support-page">
     <header class="page-head" style="padding-top:22px"><div><p class="eyebrow">Team only</p><h1>Support inbox</h1></div><p class="count" id="sup-count"></p></header>
@@ -5131,11 +5217,14 @@ VIEWS.support = v => {
     sel = id; drawList();
     const c = chats.find(x => x.id === id); if (!c) return;
     if (unsubMsgs) unsubMsgs();
-    $("#sup-thread").innerHTML = `<header class="sup-head"><div><b>${esc(c.name)}</b><small><a class="inline-link" href="mailto:${esc(c.email)}">${esc(c.email)}</a>${c.uid ? " · Signed-in customer" : " · Guest"} · started on ${esc(c.page || "#home")}</small></div>
+    $(".support-grid").classList.add("is-thread");
+    $("#sup-thread").innerHTML = `<header class="sup-head"><button type="button" class="sup-back" id="sup-back" aria-label="Back to all chats">${svgI('<path d="M15 6l-6 6 6 6"/>')}<span>All chats</span></button><div><b>${esc(c.name)}</b><small><a class="inline-link" href="mailto:${esc(c.email)}">${esc(c.email)}</a>${c.uid ? " · Signed-in customer" : " · Guest"} · started on ${esc(c.page || "#home")}</small></div>
         <button type="button" class="btn btn-ghost btn-sm" id="sup-resolve">${c.status === "open" ? `${I.check} Mark resolved` : "Reopen"}</button></header>
       <div class="sup-msgs" id="sup-msgs" role="log" aria-live="polite"></div>
       <div class="sup-canned">${CANNED.map((t, i) => `<button type="button" data-canned="${i}">${esc(t.length > 38 ? t.slice(0, 36) + "…" : t)}</button>`).join("")}</div>
-      <form class="chat-input sup-reply" id="sup-form"><label class="sr-only" for="sup-text">Reply to ${esc(c.name)}</label><textarea id="sup-text" rows="2" maxlength="1000" placeholder="Write a reply… (Enter to send, Shift+Enter for a new line)"></textarea><button type="submit" class="chat-send" aria-label="Send reply">${I.send}</button></form>`;
+      <form class="chat-input sup-reply" id="sup-form"><label class="sr-only" for="sup-text">Reply to ${esc(c.name)}</label><textarea id="sup-text" rows="2" maxlength="1000" placeholder="Write a reply…"></textarea><button type="submit" class="chat-send" id="sup-send" aria-label="Send reply">${I.send}</button></form>
+      <p class="sup-hint">The customer sees your reply in the chat straight away and also gets it by email.</p>`;
+    $("#sup-back").addEventListener("click", () => { sel = null; $(".support-grid").classList.remove("is-thread"); $("#sup-thread").style.height = ""; window.scrollTo({ top: 0 }); if (unsubMsgs) { unsubMsgs(); unsubMsgs = null; } drawList(); });
     unsubMsgs = chatBe().watchMessages(id, list => {
       const box = $("#sup-msgs"); if (!box) return;
       list.sort((a, b) => a.at.localeCompare(b.at));
@@ -5146,18 +5235,30 @@ VIEWS.support = v => {
     const ta = $("#sup-text");
     ta.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("#sup-form").requestSubmit(); } });
     $("#sup-form").addEventListener("submit", async e => {
-      e.preventDefault(); const text = ta.value.trim(); if (!text) return; ta.value = "";
+      e.preventDefault(); const text = ta.value.trim(); if (!text) return;
+      const sendBtn = $("#sup-send"); if (sendBtn.disabled) return;
+      sendBtn.disabled = true; ta.value = "";
       const at = new Date().toISOString();
+      const write = async () => { await chatBe().add(id, { from: "agent", name: `${u.first || "Team"} · URBANSTYLE`, text, at }); await chatBe().update(id, { lastMessage: "You: " + text.slice(0, 120), updatedAt: at, unreadForAdmin: 0 }); };
       try {
-        await chatBe().add(id, { from: "agent", name: `${u.first} · URBANSTYLE`, text, at }); await chatBe().update(id, { lastMessage: "You: " + text.slice(0, 120), updatedAt: at, unreadForAdmin: 0 });
+        // a refused write usually means an out-of-date sign-in token: refresh it once and try again
+        try { await write(); } catch (e1) { if (e1 && e1.code === "permission-denied" && await refreshTeamAccess()) await write(); else throw e1; }
         // also email the reply to the customer, with a link back to this conversation (the server spaces these out)
         if (authMode === "firebase" && fb.auth.currentUser) fb.auth.currentUser.getIdToken().then(t => brandedEmail("chat-reply", { chatId: id }, t)).catch(() => {});
       }
-      catch (err) { console.warn(err); say("Reply not sent. Check your connection."); ta.value = text; }
+      catch (err) {
+        console.warn(err); ta.value = text;
+        say(err && err.code === "permission-denied" ? "Reply not sent: your access needs refreshing. Go back to All chats and tap Refresh access." : "Reply not sent. Check your connection and try again.");
+      } finally { sendBtn.disabled = false; if (matchMedia("(min-width:1024px)").matches) ta.focus(); }
     });
     $(".sup-canned").addEventListener("click", e => { const b = e.target.closest("[data-canned]"); if (b) { ta.value = CANNED[+b.dataset.canned]; ta.focus(); } });
     $("#sup-resolve").addEventListener("click", async () => { const next = c.status === "open" ? "resolved" : "open"; await chatBe().update(id, { status: next, updatedAt: new Date().toISOString() }).catch(() => {}); c.status = next; say(next === "resolved" ? "Conversation resolved." : "Conversation reopened."); openThread(id); });
-    setTimeout(() => ta.focus(), 50);
+    if (matchMedia("(min-width:1024px)").matches) setTimeout(() => ta.focus(), 50);
+    else { // phones: fit the conversation exactly between the sticky header and the bottom of the screen
+      const th = $("#sup-thread"), hdr = $("#site-header"), top = hdr ? hdr.getBoundingClientRect().height : 64;
+      th.style.height = (window.innerHeight - top - 12) + "px";
+      window.scrollTo({ top: th.getBoundingClientRect().top + window.scrollY - top - 6 });
+    }
   };
   v.querySelector(".tabs").addEventListener("click", e => { const b = e.target.closest("[data-f]"); if (!b) return; filter = b.dataset.f; $$(".support-page .tabs [data-f]").forEach(x => x.setAttribute("aria-selected", x === b)); drawList(); });
   $("#sup-list").addEventListener("click", e => { const b = e.target.closest("[data-id]"); if (b) openThread(b.dataset.id); });
@@ -5171,6 +5272,15 @@ VIEWS.support = v => {
   const drawNotifyBtn = () => { const p = "Notification" in window ? Notification.permission : "unsupported"; notifyBtn.hidden = p === "unsupported" || p === "granted"; notifyBtn.textContent = p === "denied" ? "Alerts blocked in browser settings" : "Turn on message alerts"; notifyBtn.disabled = p === "denied"; };
   notifyBtn.addEventListener("click", async () => { try { await Notification.requestPermission(); } catch (e) {} drawNotifyBtn(); });
   drawNotifyBtn(); $(".support-page .page-head").append(notifyBtn);
+  // if Firebase refuses the list (usually a sign-in token from before the email was verified),
+  // refresh access once automatically; if it still fails, say so clearly instead of showing an empty inbox
+  let retried = false;
+  const onListError = async e => {
+    if (!retried && e && e.code === "permission-denied") { retried = true; if (await refreshTeamAccess()) { renderView(); return; } }
+    const box = $("#sup-list"); if (!box) return;
+    box.innerHTML = `<li class="sup-empty sup-error"><b>Couldn't load conversations.</b><span>${e && e.code === "permission-denied" ? "Your access needs refreshing." : "Check your internet connection."}</span><button type="button" class="btn btn-ink btn-sm" id="sup-refresh">Refresh access</button></li>`;
+    $("#sup-refresh").addEventListener("click", async ev => { ev.target.disabled = true; ev.target.textContent = "Refreshing…"; await refreshTeamAccess(); renderView(); });
+  };
   const unsubChats = chatBe().watchChats(list => {
     chats = list; drawList();
     const unread = chats.reduce((n, c) => n + (c.unreadForAdmin || 0), 0);
@@ -5184,7 +5294,7 @@ VIEWS.support = v => {
     }
     if (firstLoad && route.id && chats.some(c => c.id === route.id)) openThread(route.id); // deep link from the alert email
     lastUnread = unread; firstLoad = false;
-  });
+  }, onListError);
   VIEWS._cleanup = () => { unsubChats(); if (unsubMsgs) unsubMsgs(); document.title = baseTitle; };
 };
 
@@ -5429,7 +5539,7 @@ VIEWS.admin = async v => {
   const u = Auth.current();
   if (!u) { authNext = "admin"; setTimeout(() => go("login", { replace: true })); return; }
   setMeta("Team dashboard", "URBANSTYLE store operations.");
-  if (!isAdminUser()) { v.innerHTML = `<div class="wrap not-found"><h1>This page is for the URBANSTYLE team.</h1><p>Sign in with the team account (and verify its email) to manage the store.</p><a class="btn btn-ink" href="#home">Back to the shop</a></div>`; return; }
+  if (!isAdminUser()) return teamGate(v, u, "the Team dashboard");
   v.innerHTML = `<div class="wrap auth-page"><div class="auth-loading" role="status"><span class="spinner" aria-hidden="true"></span>Loading the dashboard…</div></div>`;
   const load = c => DB().all(c).catch(e => { console.warn(`[URBANSTYLE] ${c}:`, e.code || e.message); return []; });
   const [orders, returns, messages, subs, alerts, reviews] = await Promise.all(["orders", "returns", "messages", "subscribers", "stockAlerts", "reviews"].map(load));
