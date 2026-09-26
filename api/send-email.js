@@ -7,6 +7,7 @@
 //
 //   { action: "chat-new", chatId }        alerts the store that a customer is waiting in the live chat
 //   { action: "chat-reply", chatId }      + team member's ID token: emails the customer the team's reply
+//   { action: "verify-code", code }       + customer's ID token: confirms the 6-digit code from the verification email
 //   { action: "status-check" }            checks the setup, sends nothing
 //
 // Emails are sent through Brevo (brevo.com, free for 300 emails a day). Firebase is only asked for the
@@ -143,6 +144,7 @@ module.exports = async (req, res) => {
   const site = siteUrl(req);
   try {
     if (body.action === "verify") return await sendVerify(fb, req, res, site);
+    if (body.action === "verify-code") return await checkVerifyCode(fb, req, body, res);
     if (body.action === "reset") return await sendReset(fb, body, res, site);
     if (body.action === "order") return await sendOrder(fb, body, res, site);
     if (body.action === "chat-new") return await sendChatAlert(fb, body, res, site);
@@ -167,19 +169,49 @@ async function sendVerify(fb, req, res, site) {
   const link = await fb.auth().generateEmailVerificationLink(user.email, { url: site + "/#account" });
   const url = storeLink(site, "verifyEmail", link);
   const first = String(user.name || "").split(" ")[0] || "there";
+  // like Amazon and Shopify: a 6-digit code the customer can type on the site, as well as the link
+  const code = String(crypto.randomInt(0, 1000000)).padStart(6, "0");
+  await fb.firestore().collection("emailCodes").doc(user.uid).set({ hash: sha(user.uid + ":" + code), exp: Date.now() + CODE_TTL_MS, tries: 0 });
   await brevo({
-    to: user.email, name: user.name, subject: `Confirm your email for ${BRAND}`,
+    to: user.email, name: user.name, subject: `${code} is your ${BRAND} confirmation code`,
     html: layout({
-      preheader: "One tap to confirm your email and finish setting up your account.",
+      preheader: `Your code is ${code}. Or tap the button to confirm your email.`,
       title: `Welcome to ${BRAND}, ${esc(first)}!`,
-      body: `<p>Thanks for creating an account. Please confirm your email address so we can keep your account secure and send you order updates.</p>`,
+      body: `<p>Thanks for creating an account. Confirm your email address so we can keep your account secure and send you order updates.</p>
+        <p style="margin:18px 0 6px">Enter this code on the website:</p>
+        <div style="display:inline-block;padding:12px 20px;border-radius:12px;background:#F4F1EA;font:800 30px/1 'Courier New',monospace;letter-spacing:.3em;color:#141414">${code}</div>
+        <p style="margin:18px 0 0">Or confirm with one tap:</p>`,
       button: ["Verify my email", url],
-      after: `<p style="margin:0 0 8px">This link works once and expires in 3 days.</p><p style="margin:0">If you didn't create an account with us, you can safely ignore this email.</p>`,
+      after: `<p style="margin:0 0 8px">The code expires in 15 minutes. The button works once and expires in 3 days.</p><p style="margin:0">If you didn't create an account with us, you can safely ignore this email.</p>`,
       link: url
     }),
-    text: `Welcome to ${BRAND}, ${first}!\n\nConfirm your email address: ${url}\n\nIf you didn't create an account with us, you can ignore this email.\n\n${signoffText()}`
+    text: `Welcome to ${BRAND}, ${first}!\n\nYour confirmation code: ${code} (expires in 15 minutes)\n\nOr confirm with this link: ${url}\n\nIf you didn't create an account with us, you can ignore this email.\n\n${signoffText()}`
   });
-  return res.status(200).json({ ok: true });
+  return res.status(200).json({ ok: true, code: true });
+}
+
+/* ---------- 1b. confirm the 6-digit code typed on the website ---------- */
+const CODE_TTL_MS = 15 * 60 * 1000, CODE_MAX_TRIES = 5;
+async function checkVerifyCode(fb, req, body, res) {
+  const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+  let user;
+  try { user = await fb.auth().verifyIdToken(token); } catch (e) { return res.status(401).json({ ok: false, error: "bad-token" }); }
+  if (user.email_verified) return res.status(200).json({ ok: true, already: true });
+  const code = String(body.code || "").replace(/\D/g, "");
+  if (code.length !== 6) return res.status(400).json({ ok: false, error: "bad-code" });
+  const ref = fb.firestore().collection("emailCodes").doc(user.uid), snap = await ref.get();
+  const c = snap.exists ? snap.data() : null;
+  if (!c || !c.hash || Date.now() > Number(c.exp || 0)) return res.status(400).json({ ok: false, error: "expired" });
+  if (Number(c.tries || 0) >= CODE_MAX_TRIES) return res.status(429).json({ ok: false, error: "too-many-tries" });
+  if (sha(user.uid + ":" + code) !== c.hash) {
+    const tries = Number(c.tries || 0) + 1;
+    await ref.set({ tries }, { merge: true });
+    return res.status(400).json({ ok: false, error: "wrong-code", left: Math.max(0, CODE_MAX_TRIES - tries) });
+  }
+  const upd = await google(`${IDT()}/accounts:update`, { localId: user.uid, emailVerified: true });
+  if (!upd.ok) throw new Error("verify-update-failed " + upd.status);
+  await ref.set({ hash: "", exp: 0, tries: 0, usedAt: new Date().toISOString() });
+  return res.status(200).json({ ok: true, verified: true });
 }
 
 /* ---------- 2. password reset ---------- */
