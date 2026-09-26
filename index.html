@@ -429,7 +429,7 @@ input[type="range"]{width:100%;accent-color:var(--ink);min-height:44px}
 .g-slide{flex:0 0 100%;margin:0;scroll-snap-align:start;aspect-ratio:4/5;max-width:100%;overflow:hidden;background:var(--stone);cursor:zoom-in}
 .g-slide img{width:100%;height:100%;object-fit:cover;transition:transform .3s var(--ease);transform-origin:var(--ox,50%) var(--oy,50%)}
 /* studio photos are taller than the 4:5 frames: keep heads in view on cards, show the whole outfit on the product page */
-img[src^="photos/"]{object-position:50% 16%}
+img[src*="photos/"]{object-position:50% 16%}
 .team-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 @media (min-width:700px){.team-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (min-width:1024px){.team-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:18px}}
@@ -439,7 +439,7 @@ img[src^="photos/"]{object-position:50% 16%}
 .team-card figcaption{display:grid;gap:2px;padding:12px 14px}
 .team-card figcaption b{font-weight:800}
 .team-card figcaption span{color:var(--muted);font-size:14px}
-.g-slide img[src^="photos/"]{object-fit:contain;background:#E9E7E3}
+.g-slide img[src*="photos/"]{object-fit:contain;background:#E9E7E3}
 .g-slide.is-zoomed{cursor:zoom-out}
 .g-slide.is-zoomed img{transform:scale(2.2)}
 .g-dots{display:flex;justify-content:center;gap:6px;margin-top:10px}
@@ -801,6 +801,25 @@ body.has-sticky{padding-bottom:84px}
 .action-icon{width:64px;height:64px;border-radius:50%;background:var(--lime);display:grid;place-items:center;font:800 30px/1 var(--font-display);color:var(--ink)}
 .action-icon svg.i{width:30px;height:30px;stroke-width:3}
 .action-icon.is-bad{background:#F6D9D2;color:#9B2C1C}
+/* email confirmation */
+.verify-banner{background:#FFF7CC;border-bottom:1px solid #EFE2A0}
+.vb-inner{display:flex;align-items:center;gap:10px;padding-block:8px;font-size:14px}
+.vb-ico svg.i{width:20px;height:20px}
+.vb-txt{flex:1;min-width:0}
+.vb-x{flex:none;width:36px;height:36px;display:grid;place-items:center;border:0;background:none;border-radius:50%;color:var(--ink)}
+.vb-x svg.i{width:18px;height:18px}
+@media (max-width:599px){.vb-inner{flex-wrap:wrap;font-size:13px}.vb-txt{flex-basis:calc(100% - 80px)}.vb-inner .btn{order:3}}
+.verify-gate{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:16px;border:1.5px dashed #D8CFA0;border-radius:var(--r-md);background:#FFFBE6}
+.verify-gate>div{flex:1;min-width:200px}
+.vg-ico svg.i{width:26px;height:26px}
+.verify-card .vc-form{max-width:320px;margin-inline:auto}
+.vc-code{width:100%;min-height:58px;text-align:center;font:800 28px/1 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.45em;padding-left:.45em;border:1.5px solid #BDB8AC;border-radius:var(--r-sm);background:#fff}
+.vc-code:focus{outline:3px solid var(--lime);border-color:var(--ink)}
+.vc-wait{display:flex;align-items:center;justify-content:center;gap:8px;margin:0;color:var(--muted);font-size:13.5px}
+.vc-wait .spinner{width:16px;height:16px}
+.vc-help{width:100%;padding:14px 16px;border-radius:var(--r-md);background:var(--bg);font-size:14px;display:grid;gap:10px}
+.vc-help p{margin:0}
+.vc-skip{font-size:14px}
 .auth-loading{display:flex;align-items:center;justify-content:center;gap:12px;min-height:40vh;font-weight:600;color:var(--muted)}
 .spinner{width:22px;height:22px;border:3px solid var(--line);border-top-color:var(--ink);border-radius:50%;animation:spin .8s linear infinite}
 .verify-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px;padding:12px 16px;border-radius:var(--r-md);background:#FFF6DC;border:1.5px solid #EBCB6E;font-size:14.5px}
@@ -1475,7 +1494,7 @@ const CFG = {
   contactEndpoint: null, newsletterEndpoint: null, orderEndpoint: null,
   // Online payments (Paystack). Paste your PUBLIC key here: pk_test_… while testing, pk_live_… when live.
   // The SECRET key never goes in this file: add it in Vercel → Settings → Environment Variables as PAYSTACK_SECRET_KEY.
-  paystack: { publicKey: "", verifyEndpoint: "/api/verify-payment" },
+  paystack: { publicKey: "", verifyEndpoint: (window.URBANSTYLE_API || "/api/") + "verify-payment" },
   featured: ["p25", "p28", "p26", "p33", "p34", "p35", "p45", "p42"],
   pageSize: 12
 };
@@ -2217,18 +2236,30 @@ function fbErr(e) {
 const emailLinkSettings = route => /^https?:$/.test(location.protocol) ? { url: location.origin + "/#" + route } : undefined;
 // Branded emails come from our own /api/send-email (Brevo). Returns true when it sent the email;
 // false means it isn't set up (or failed), and the caller falls back to Firebase's standard email.
-async function brandedEmail(action, payload = {}, idToken) {
-  if (!/^https?:$/.test(location.protocol) || /^(localhost|127\.)/.test(location.hostname)) return false;
+// Calls /api/send-email and returns { ok, status, j } (status 0 = not available here, e.g. on this computer).
+async function emailApi(action, payload = {}, idToken) {
+  if (!/^https?:$/.test(location.protocol) || /^(localhost|127\.)/.test(location.hostname)) return { ok: false, status: 0, j: {} };
   try {
-    const r = await fetch("/api/send-email", { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, idToken ? { Authorization: "Bearer " + idToken } : {}), body: JSON.stringify(Object.assign({ action }, payload)) });
+    const r = await fetch((window.URBANSTYLE_API || "/api/") + "send-email", { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, idToken ? { Authorization: "Bearer " + idToken, "X-Id-Token": idToken } : {}), body: JSON.stringify(Object.assign({ action }, payload)) });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok && r.status !== 429) console.warn(`[URBANSTYLE] Email "${action}" not sent:`, r.status, j.error || "", j.detail || "");
-    return r.ok && j.ok === true || r.status === 429; // 429 = one was sent less than a minute ago
-  } catch (e) { return false; }
+    if (!r.ok && r.status !== 429 && action !== "verify-code") console.warn(`[URBANSTYLE] Email "${action}" not sent:`, r.status, j.error || "", j.detail || "");
+    return { ok: r.ok && j.ok === true, status: r.status, j };
+  } catch (e) { return { ok: false, status: 0, j: {} }; }
 }
+async function brandedEmail(action, payload = {}, idToken) {
+  const r = await emailApi(action, payload, idToken);
+  return r.ok || r.status === 429; // 429 = one was sent less than a minute ago
+}
+let verifySendPromise = null; // the email sent at sign-up (the check-your-inbox page waits for it)
+// Sends the "confirm your email" message. Returns { code: true } when the branded email (with a 6-digit code)
+// went out, so the check-your-inbox page can offer the code box; otherwise Firebase's own link email is used.
 async function sendVerificationEmail(user) {
-  try { if (await brandedEmail("verify", {}, await user.getIdToken())) return; } catch (e) {}
+  try {
+    const r = await emailApi("verify", {}, await user.getIdToken());
+    if (r.ok || r.status === 429) { const code = !!(r.j && r.j.code) || (r.status === 429 && store.get("vcodeAt", 0) > Date.now() - 15 * 60000); if (r.j && r.j.code) store.set("vcodeAt", Date.now()); return { code }; }
+  } catch (e) {}
   await user.sendEmailVerification(emailLinkSettings("account")).catch(() => user.sendEmailVerification());
+  return { code: false };
 }
 const FirebaseAuth = {
   _u: null, _busy: false,
@@ -2272,7 +2303,7 @@ const FirebaseAuth = {
       const profile = { first: first.trim(), last: last.trim(), email: user.email, phone: "", address: null, wish: store.get("wish", []), marketing: !!marketing, created: new Date().toISOString() };
       store.set("wish", []);
       this._u = Object.assign({}, profile, { id: user.uid, verified: false, orders: [], profileLoaded: true });
-      sendVerificationEmail(user).catch(() => {});
+      verifySendPromise = sendVerificationEmail(user).catch(() => ({ code: false }));
       // save the profile (and any guest order placed with this email) without holding up the welcome screen
       const lo = store.get("lastOrder", null);
       this._afterProfile((async () => {
@@ -2328,7 +2359,7 @@ const FirebaseAuth = {
     try { await fb.auth.sendPasswordResetEmail(email.trim(), emailLinkSettings("login")).catch(e => { if (e && /continue-uri|unauthorized/i.test(e.code || "")) return fb.auth.sendPasswordResetEmail(email.trim()); throw e; }); }
     catch (e) { const x = fbErr(e); if (x.message !== "invalid") throw x; } // don't reveal whether an account exists
   },
-  async resendVerification() { const u = fb.auth.currentUser; if (u) await sendVerificationEmail(u); },
+  async resendVerification() { const u = fb.auth.currentUser; return u ? sendVerificationEmail(u) : { code: false }; },
   async deleteAccount(pw) {
     await this._reauth(pw);
     this._busy = true;
@@ -2404,6 +2435,48 @@ function refreshAccountUI() {
   $("#acct-name").textContent = u ? `Hi, ${u.first}` : "Sign in";
   const m = $("#m-account"); if (m) m.textContent = u ? "My account" : "Sign in";
   updateWishCount();
+  drawVerifyBanner();
+}
+
+/* ---------- Email confirmation (the way big stores do it) ----------
+   - After sign-up: a "Check your inbox" page with the address, buttons to open the mail app, a 6-digit code
+     box, a resend countdown and a way to fix a mistyped address. It notices by itself when the email is confirmed.
+   - Shopping and checkout are never blocked. Until the email is confirmed a slim reminder bar shows, and
+     reviews and opening a seller store ask for confirmation first. */
+const needsVerify = () => { const u = Auth.current(); return authMode === "firebase" && !!u && !u.verified; };
+function drawVerifyBanner() {
+  let b = $("#verify-banner");
+  const show = needsVerify() && !["verifyemail", "authaction"].includes(route && route.v) && !sessionStorage.getItem("us_vb_hide");
+  if (!show) { if (b) b.remove(); return; }
+  if (!b) { b = document.createElement("div"); b.id = "verify-banner"; b.className = "verify-banner"; b.setAttribute("role", "status"); const view = $("#view"); if (!view) return; view.before(b); }
+  b.innerHTML = `<div class="wrap vb-inner"><span class="vb-ico">${I.mail || I.lock}</span><span class="vb-txt"><b>Confirm your email</b> to secure your account and get order updates.</span>
+    <a class="btn btn-lime btn-sm" href="#verify-email">Confirm now</a><button type="button" class="vb-x" aria-label="Hide for now">${I.close}</button></div>`;
+  b.querySelector(".vb-x").addEventListener("click", () => { sessionStorage.setItem("us_vb_hide", "1"); b.remove(); });
+}
+// For actions that need a confirmed email (reviews, opening a store): shows a prompt in `el` and returns true.
+function verifyGate(el, what) {
+  if (!needsVerify()) return false;
+  el.innerHTML = `<div class="verify-gate"><span class="vg-ico">${I.mail || I.lock}</span><div><b>Confirm your email to ${what}</b><p class="muted small">It only takes a moment, and it keeps the community trustworthy.</p></div><a class="btn btn-ink btn-sm" href="#verify-email" data-next="${esc(currentHash || "account")}">Confirm email</a></div>`;
+  return true;
+}
+// Quietly checks with Firebase whether the email has been confirmed (e.g. by tapping the link on another device).
+async function checkVerifiedNow() {
+  if (authMode !== "firebase" || !fb.auth.currentUser) return false;
+  try {
+    const fu = fb.auth.currentUser; await fu.reload();
+    if (fu.emailVerified) { await fu.getIdToken(true); const me = Auth.current(); if (me) me.verified = true; refreshAccountUI(); return true; }
+  } catch (e) {}
+  return false;
+}
+// Mail-app shortcuts, like Slack and Notion show after sign-up
+function mailShortcuts(email) {
+  const d = String(email.split("@")[1] || "").toLowerCase();
+  const q = encodeURIComponent("URBANSTYLE");
+  if (/^(gmail|googlemail)\.com$/.test(d)) return [["Open Gmail", `https://mail.google.com/mail/u/0/#search/${q}`]];
+  if (/^(outlook|hotmail|live|msn)\./.test(d)) return [["Open Outlook", "https://outlook.live.com/mail/0/"]];
+  if (/^(yahoo|ymail)\./.test(d)) return [["Open Yahoo Mail", "https://mail.yahoo.com/"]];
+  if (/^(icloud|me|mac)\.com$/.test(d)) return [["Open iCloud Mail", "https://www.icloud.com/mail"]];
+  return [];
 }
 
 /* ============ 4. GLOBAL UI ============ */
@@ -2421,6 +2494,7 @@ const I = {
   bag: svgI('<path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>'),
   menu: svgI('<path d="M4 7h16M4 12h16M4 17h10"/>'),
   close: svgI('<path d="M6 6l12 12M18 6 6 18"/>'),
+  mail: svgI('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>'),
   heart: svgI('<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>'),
   plus: svgI('<path d="M12 5v14M5 12h14"/>'), minus: svgI('<path d="M5 12h14"/>'),
   check: svgI('<path d="m5 12 5 5 9-10"/>'), arrow: svgI('<path d="M5 12h14M13 6l6 6-6 6"/>'),
@@ -2907,6 +2981,7 @@ function parseRoute(raw) {
   if (h.startsWith("track-")) return { v: "track", token: h.slice(6) };
   if (h === "track") return { v: "track", token: "" };
   if (h === "auth-action") return { v: "authaction" };
+  if (h === "verify-email") return { v: "verifyemail" };
   if (h === "sell" || h === "sell-apply") return { v: "sell", apply: h === "sell-apply" };
   if (h === "seller" || h.startsWith("seller-")) { const [tab, ...rest] = h.slice(7).split("-"); return { v: "seller", tab: tab || "overview", pid: rest.join("-") }; }
   if (h.startsWith("store-")) return { v: "store", handle: h.slice(6) };
@@ -2928,6 +3003,7 @@ function renderView() {
   if (VIEWS._cleanup) { VIEWS._cleanup(); VIEWS._cleanup = null; }
   $$("[data-nav]").forEach(a => { const k = a.dataset.nav; const on = k === route.v || (k === "shop" && route.v === "product"); on ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"); });
   (VIEWS[route.v] || VIEWS.notfound)(view);
+  drawVerifyBanner();
   Analytics.page();
 }
 /* In-page router: every internal link is handled here, so page changes work even
@@ -4006,7 +4082,12 @@ VIEWS.login = v => {
     try {
       const u = await Auth.signIn(d.email, d.password, !!d.remember);
       refreshAccountUI(); say(`Welcome back, ${esc(u.first)}.`);
-      const next = authNext || "account"; authNext = null; go(next, { replace: true });
+      const next = authNext || "account"; authNext = null;
+      // not confirmed yet: first check (it may have been confirmed on another device), then show the
+      // check-your-inbox page once per visit; after that the reminder bar is enough
+      if (authMode === "firebase" && !u.verified && !(await checkVerifiedNow()) && !sessionStorage.getItem("us_vshown")) {
+        sessionStorage.setItem("us_vshown", "1"); verifyNext = next; go("verify-email", { replace: true });
+      } else go(next, { replace: true });
     } catch (err) {
       alertBox("au-alert", authErrMsg(String(err.message), "sign-in"));
       $("#au-password").value = ""; $("#au-password").focus();
@@ -4053,7 +4134,9 @@ VIEWS.signup = v => {
     try {
       const u = await Auth.signUp({ first: d.first, last: d.last, email: d.email, password: d.password, marketing: !!d.marketing });
       refreshAccountUI(); say(`Welcome, ${esc(u.first)}! Your account is ready.`);
-      const next = authNext || "account"; authNext = null; go(next, { replace: true });
+      const next = authNext || "account"; authNext = null;
+      if (authMode === "firebase" && !u.verified) { verifyNext = next; sessionStorage.setItem("us_vshown", "1"); go("verify-email", { replace: true }); }
+      else go(next, { replace: true });
     } catch (err) {
       alertBox("au-alert", authErrMsg(String(err.message), "sign-up"));
     }
@@ -4085,6 +4168,98 @@ VIEWS.forgot = v => {
       <p>Contact customer care at <b>urbanstylefashionng@gmail.com</b> or <b>0816 801 3667</b> from ${esc(d.email)} and we'll reset it for you.</p></div>
       <a class="btn btn-ghost btn-block" href="#login">Back to sign in</a>`;
   });
+};
+
+/* "Check your inbox" page shown after sign-up (and once per visit when signing in unconfirmed) */
+let verifyNext = null;
+VIEWS.verifyemail = v => {
+  if (authMode === "loading") return authLoading(v);
+  const u = Auth.current();
+  if (!u) { authNext = "verify-email"; setTimeout(() => go("login", { replace: true })); return; }
+  setMeta("Confirm your email");
+  const nextHash = () => { const n = verifyNext || authNext || "account"; verifyNext = null; authNext = null; return n === "verify-email" ? "account" : n; };
+  const card = inner => `<div class="wrap auth-page"><section class="auth-card action-card verify-card">${inner}</section></div>`;
+  let poll = null, tick = null, alive = true;
+  const stop = () => { alive = false; clearInterval(poll); clearInterval(tick); document.removeEventListener("visibilitychange", onVis); };
+  VIEWS._cleanup = stop;
+  const success = () => {
+    stop();
+    v.innerHTML = card(`<div class="action-icon">${I.check}</div><h1 class="auth-h">Email confirmed</h1>
+      <p class="auth-sub">You're all set, ${esc(u.first || "there")}. Your account is secure and order updates will come to <b>${esc(u.email)}</b>.</p>
+      <div class="btn-pair"><a class="btn btn-lime" href="#${esc(nextHash())}" id="vc-go">Continue ${I.arrow}</a></div>`);
+    const go2 = $("#vc-go").getAttribute("href").slice(1);
+    setTimeout(() => { if (route.v === "verifyemail") go(go2, { replace: true }); }, 2200);
+  };
+  if (authMode !== "firebase" || u.verified) return success();
+
+  const shortcuts = mailShortcuts(u.email);
+  v.innerHTML = card(`<div class="action-icon">${I.mail}</div>
+    <h1 class="auth-h">Check your inbox</h1>
+    <p class="auth-sub">We sent a confirmation email to <b>${esc(u.email)}</b>. Tap the button in it${" "}<span id="vc-or" hidden>or enter the 6-digit code below</span> to confirm your account.</p>
+    <form class="auth-form vc-form" id="vc-form" novalidate hidden>
+      <label for="vc-code">6-digit code</label>
+      <input id="vc-code" name="code" class="vc-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="6" placeholder="••••••" aria-describedby="vc-err">
+      <p class="field-error" id="vc-err" role="alert" hidden></p>
+      <button class="btn btn-ink btn-block" type="submit" id="vc-submit">Confirm email</button>
+    </form>
+    ${shortcuts.length ? `<div class="btn-pair">${shortcuts.map(([t, href]) => `<a class="btn btn-ghost" href="${href}" target="_blank" rel="noopener">${I.mail} ${t}</a>`).join("")}</div>` : ""}
+    <p class="vc-wait" id="vc-wait"><span class="spinner" aria-hidden="true"></span>Waiting for confirmation. This page updates by itself.</p>
+    <div class="vc-help">
+      <p><b>Can't find it?</b> It comes from <b>URBANSTYLE FASHION</b>. Check Spam and Promotions, or search your inbox for "URBANSTYLE".</p>
+      <div class="btn-pair"><button type="button" class="btn btn-ghost btn-sm" id="vc-resend">Resend email</button><button type="button" class="btn btn-ghost btn-sm" id="vc-change">Wrong email?</button></div>
+      <p class="muted small" id="vc-msg" role="status"></p>
+    </div>
+    <a class="inline-link vc-skip" href="#" id="vc-skip">Skip for now and keep shopping</a>`);
+  const msg = t => { $("#vc-msg").innerHTML = t; };
+  const showCode = on => { $("#vc-form").hidden = !on; $("#vc-or").hidden = !on; if (on) setTimeout(() => { const c = $("#vc-code"); if (c && matchMedia("(min-width:768px)").matches) c.focus(); }, 60); };
+  // resend countdown (60 seconds between emails, like most sites)
+  const resend = $("#vc-resend");
+  const drawResend = () => { const left = Math.ceil((store.get("vsentAt", 0) + 60000 - Date.now()) / 1000); resend.disabled = left > 0; resend.textContent = left > 0 ? `Resend in ${left}s` : "Resend email"; };
+  tick = setInterval(drawResend, 1000); drawResend();
+  // is the code option available? (only with the branded email)
+  (async () => {
+    let code = store.get("vcodeAt", 0) > Date.now() - 15 * 60000;
+    if (verifySendPromise) { const r = await verifySendPromise; verifySendPromise = null; store.set("vsentAt", Date.now()); code = !!(r && r.code); drawResend(); }
+    if (alive) showCode(code);
+  })();
+  resend.addEventListener("click", async () => {
+    resend.disabled = true; resend.textContent = "Sending…";
+    try { const r = await Auth.resendVerification(); store.set("vsentAt", Date.now()); showCode(!!(r && r.code)); msg(`Sent again to <b>${esc(u.email)}</b>. Use the newest email.`); }
+    catch (e) { msg("Couldn't send just now. Please try again in a minute."); }
+    drawResend();
+  });
+  $("#vc-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const inp = $("#vc-code"), err = $("#vc-err"), btn = $("#vc-submit"), code = inp.value.replace(/\D/g, "");
+    err.hidden = true;
+    if (code.length !== 6) { err.textContent = "Enter the 6 digits from the email."; err.hidden = false; inp.focus(); return; }
+    btn.disabled = true; btn.textContent = "Checking…";
+    const fu = authMode === "firebase" && fb.auth ? fb.auth.currentUser : null;
+    const r = fu ? await emailApi("verify-code", { code }, await fu.getIdToken().catch(() => "")) : { ok: false, status: 0, j: {} };
+    if (r.ok && (await checkVerifiedNow() || (r.j && r.j.already))) return success();
+    btn.disabled = false; btn.textContent = "Confirm email";
+    const e2 = r.j && r.j.error;
+    err.textContent = e2 === "wrong-code" ? `That code isn't right.${r.j.left ? ` ${r.j.left} tries left.` : ""} Check the newest email.`
+      : e2 === "expired" ? "This code has expired. Tap Resend email for a new one."
+      : e2 === "too-many-tries" ? "Too many tries. Tap Resend email for a new code, or use the button in the email."
+      : r.status === 0 || e2 === "unknown-action" ? "Codes aren't available right now. Please use the button in the email." : "Couldn't check the code. Please try again.";
+    err.hidden = false; inp.select();
+  });
+  $("#vc-code").addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6); if (e.target.value.length === 6) $("#vc-form").requestSubmit(); });
+  // wrong address: remove the just-created account and start again with the right email
+  $("#vc-change").addEventListener("click", async () => {
+    if (!confirm(`Remove the account for ${u.email} and sign up again with a different email?`)) return;
+    authPrefill = { name: `${u.first || ""} ${u.last || ""}`.trim() };
+    try { const fu = fb.auth.currentUser; await FirebaseAuth._db().then(() => FirebaseAuth._ref(fu.uid).delete()).catch(() => {}); await fu.delete(); }
+    catch (x) { await Auth.signOut().catch(() => {}); }
+    FirebaseAuth._u = null; refreshAccountUI(); stop(); go("signup", { replace: true }); say("Enter the correct email to create your account.");
+  });
+  $("#vc-skip").addEventListener("click", e => { e.preventDefault(); stop(); go(nextHash() === "account" ? "home" : nextHash()); say("You can confirm your email any time from the bar at the top."); });
+  // notice when it's confirmed (the link may be tapped on another device)
+  const check = async () => { if (alive && !document.hidden && await checkVerifiedNow()) success(); };
+  const onVis = () => { if (!document.hidden) check(); };
+  document.addEventListener("visibilitychange", onVis);
+  poll = setInterval(check, 5000);
 };
 
 /* Links in our branded emails land here (/?mode=verifyEmail|resetPassword&oobCode=…), so customers
@@ -4209,7 +4384,7 @@ VIEWS.account = v => {
     <header class="acct-head"><span class="avatar" aria-hidden="true">${esc(initials.toUpperCase())}</span>
       <div><p class="eyebrow">My account</p><h1>Hi, ${esc(u.first)}</h1><p class="muted">${esc(u.email)} · Member since ${since}</p></div>
       <div class="btn-pair">${isAdminUser() ? `<a class="btn btn-lime" href="#admin">${I.settings} Team dashboard</a><a class="btn btn-ghost" href="#support">${I.chat} Support inbox</a>` : ""}<a class="btn btn-ghost" href="#account-sell" id="seller-link">${I.gift} Start selling</a><button type="button" class="btn btn-ghost" id="sign-out">${I.logout} Sign out</button></div></header>
-    ${authMode === "firebase" && !u.verified ? `<div class="verify-bar" role="status">${I.lock}<span><b>Please verify your email.</b> We sent a link to ${esc(u.email)}.</span><button type="button" class="btn btn-ghost" id="resend-verify">Resend email</button></div>` : ""}
+    ${authMode === "firebase" && !u.verified ? `<div class="verify-bar" role="status">${I.mail}<span><b>Confirm your email.</b> We sent a link and a code to ${esc(u.email)}.</span><a class="btn btn-ink btn-sm" href="#verify-email" data-next="account">Confirm now</a></div>` : ""}
     <div class="acct-layout">
       <nav class="acct-nav" aria-label="Account sections">${TABS.map(([k, n, i]) => `<a href="#account${k === "overview" ? "" : "-" + k}"${k === tab ? ' aria-current="page"' : ""}>${i}<span>${n}</span>${k === "orders" && orders.length ? `<em>${orders.length}</em>` : k === "wishlist" && wish.length ? `<em>${wish.length}</em>` : ""}</a>`).join("")}</nav>
       <div class="acct-panel">${panels[tab]}</div></div></div>`;
@@ -4497,6 +4672,7 @@ async function sellerApply(el) {
   setMeta("Open your store", "Open your store on URBANSTYLE FASHION.");
   const v = el;
   const u = Auth.current(); if (!u) return;
+  if (verifyGate(v, "open your store")) return;
   v.innerHTML = `<div class="auth-loading" role="status"><span class="spinner" aria-hidden="true"></span>Loading…</div>`;
   const existing = await Market.mySeller(true).catch(() => null);
   if (existing) { go("seller", { replace: true }); return; }
@@ -5289,7 +5465,7 @@ VIEWS.support = v => {
       chime();
       const newest = chats.find(c => c.unreadForAdmin);
       if (newest && "Notification" in window && Notification.permission === "granted" && document.hidden) {
-        try { const n = new Notification(`${newest.name || "A customer"} · URBANSTYLE chat`, { body: newest.lastMessage || "New message", tag: newest.id, icon: "icon-192.png" }); n.onclick = () => { window.focus(); go("support-" + newest.id); n.close(); }; } catch (e) {}
+        try { const n = new Notification(`${newest.name || "A customer"} · URBANSTYLE chat`, { body: newest.lastMessage || "New message", tag: newest.id, icon: (window.URBANSTYLE_ASSETS || "") + "icon-192.png" }); n.onclick = () => { window.focus(); go("support-" + newest.id); n.close(); }; } catch (e) {}
       }
     }
     if (firstLoad && route.id && chats.some(c => c.id === route.id)) openThread(route.id); // deep link from the alert email
@@ -5396,6 +5572,7 @@ const Reviews = {
   form(p, slot, section) {
     const me = Auth.current();
     if (!me) { slot.innerHTML = `<div class="rev-signin"><p><b>Sign in to write a review.</b> Reviews are linked to an account so shoppers can trust them.</p><div class="btn-pair"><a class="btn btn-ink btn-sm" href="#login" data-next="product-${p.id}">Sign in</a><a class="btn btn-ghost btn-sm" href="#signup" data-next="product-${p.id}">Create account</a></div></div>`; return; }
+    if (verifyGate(slot, "write a review")) return;
     const order = (me.orders || []).find(o => (o.productIds || []).includes(p.id));
     slot.innerHTML = `<form class="rev-form" id="rev-form" novalidate>
       <h3>Review ${esc(p.name)}</h3>${order ? `<p class="verified">${I.check} You bought this in order ${esc(order.number)}. Your review will show as a verified purchase.</p>` : ""}
@@ -5689,7 +5866,7 @@ document.addEventListener("click", async e => {
   $$(".install-btn").forEach(b => { b.hidden = true; }); if (r && r.outcome === "accepted") say("URBANSTYLE is installed on your home screen.");
 });
 if ("serviceWorker" in navigator && /^https:$|^http:$/.test(location.protocol) && (location.protocol === "https:" || /^(localhost|127\.)/.test(location.hostname))) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+  if (!window.URBANSTYLE_NO_SW) window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
 }
 
 /* ---------- Wishlist ---------- */
